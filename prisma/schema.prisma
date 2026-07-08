@@ -1,0 +1,303 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------- Enums ----------
+
+enum Role {
+  ADMIN
+  CEO
+  MANAGER
+  EDITOR
+}
+
+enum JobStatus {
+  ACTIVE
+  PAUSED
+  ARCHIVED
+}
+
+enum TaskStatus {
+  DRAFT
+  ASSIGNED
+  IN_PROGRESS
+  SUBMITTED
+  CHANGES_REQUESTED
+  APPROVED
+  POSTED
+  CANCELLED
+}
+
+enum ReviewDecision {
+  APPROVED
+  CHANGES_REQUESTED
+}
+
+enum NotificationType {
+  TASK_ASSIGNED
+  SUBMISSION_RECEIVED
+  CHANGES_REQUESTED
+  TASK_APPROVED
+  TASK_POSTED
+  COMMENT_ADDED
+  OVERDUE
+}
+
+enum UploadStatus {
+  PENDING
+  COMPLETED
+  EXPIRED
+  INVALIDATED
+}
+
+// ---------- Identity ----------
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  role         Role
+  isActive     Boolean  @default(true)
+  passwordHash String? // bcrypt; null = cannot sign in yet (admin must set a password)
+  image        String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  managedJobs    Job[]           @relation("JobManager")
+  createdTasks   Task[]          @relation("TaskCreator")
+  assignedTasks  Task[]          @relation("TaskAssignee")
+  submissions    Submission[]
+  reviews        ReviewAction[]
+  comments       Comment[]
+  uploadedFiles  File[]
+  uploadSessions UploadSession[]
+  notifications  Notification[]
+  activities     ActivityLog[]
+
+  accounts Account[]
+  sessions Session[]
+}
+
+// Auth.js (Prisma adapter) tables
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ---------- Clients & Jobs ----------
+
+model Client {
+  id            String   @id @default(cuid())
+  name          String   @unique
+  notes         String?
+  isActive      Boolean  @default(true)
+  driveFolderId String?
+  createdAt     DateTime @default(now())
+
+  jobs Job[]
+}
+
+model Job {
+  id            String    @id @default(cuid())
+  clientId      String
+  client        Client    @relation(fields: [clientId], references: [id])
+  managerId     String
+  manager       User      @relation("JobManager", fields: [managerId], references: [id])
+  title         String
+  description   String?
+  status        JobStatus @default(ACTIVE)
+  driveFolderId String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  tasks Task[]
+
+  @@index([clientId])
+  @@index([managerId, status])
+}
+
+// ---------- Tasks ----------
+
+model Task {
+  id            String     @id @default(cuid())
+  jobId         String
+  job           Job        @relation(fields: [jobId], references: [id])
+  createdById   String
+  createdBy     User       @relation("TaskCreator", fields: [createdById], references: [id])
+  assigneeId    String?
+  assignee      User?      @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  title         String
+  brief         String     @default("")
+  referenceLink String?
+  status        TaskStatus @default(DRAFT)
+  dueAt         DateTime?
+  postedAt      DateTime?
+  postUrl       String?
+  driveFolderId String?
+  followUpOfId  String?
+  followUpOf    Task?      @relation("TaskFollowUp", fields: [followUpOfId], references: [id])
+  followUps     Task[]     @relation("TaskFollowUp")
+  lastOverdueNotifiedAt DateTime?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  submissions   Submission[]
+  comments      Comment[]
+  attachments   File[]
+  notifications Notification[]
+
+  @@index([jobId, status])
+  @@index([assigneeId, status])
+  @@index([status, dueAt])
+}
+
+// ---------- Revision model ----------
+
+model Submission {
+  id            String   @id @default(cuid())
+  taskId        String
+  task          Task     @relation(fields: [taskId], references: [id])
+  round         Int
+  submittedById String
+  submittedBy   User     @relation(fields: [submittedById], references: [id])
+  note          String?
+  driveFolderId String?
+  submittedAt   DateTime?
+  createdAt     DateTime @default(now())
+
+  files          File[]
+  review         ReviewAction?
+  uploadSessions UploadSession[]
+
+  @@unique([taskId, round])
+}
+
+model ReviewAction {
+  id           String         @id @default(cuid())
+  submissionId String         @unique
+  submission   Submission     @relation(fields: [submissionId], references: [id])
+  reviewerId   String
+  reviewer     User           @relation(fields: [reviewerId], references: [id])
+  decision     ReviewDecision
+  comment      String?
+  createdAt    DateTime       @default(now())
+}
+
+// ---------- Files (Google Drive-backed) ----------
+
+model File {
+  id           String      @id @default(cuid())
+  submissionId String?
+  submission   Submission? @relation(fields: [submissionId], references: [id])
+  taskId       String?
+  task         Task?       @relation(fields: [taskId], references: [id])
+  driveFileId  String      @unique
+  fileName     String
+  storedName   String
+  mimeType     String
+  sizeBytes    BigInt
+  driveStatus  String      @default("ok")
+  uploadedById String
+  uploadedBy   User        @relation(fields: [uploadedById], references: [id])
+  createdAt    DateTime    @default(now())
+
+  @@index([submissionId])
+  @@index([taskId])
+}
+
+model UploadSession {
+  id           String       @id @default(cuid())
+  submissionId String
+  submission   Submission   @relation(fields: [submissionId], references: [id])
+  editorId     String
+  editor       User         @relation(fields: [editorId], references: [id])
+  fileName     String
+  declaredSize BigInt
+  declaredMime String
+  status       UploadStatus @default(PENDING)
+  driveFileId  String?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@index([submissionId, status])
+  @@index([status, createdAt])
+}
+
+// ---------- Comments ----------
+
+model Comment {
+  id           String   @id @default(cuid())
+  taskId       String
+  task         Task     @relation(fields: [taskId], references: [id])
+  submissionId String?
+  authorId     String
+  author       User     @relation(fields: [authorId], references: [id])
+  body         String
+  createdAt    DateTime @default(now())
+
+  @@index([taskId, createdAt])
+}
+
+// ---------- Notifications ----------
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id])
+  type      NotificationType
+  taskId    String?
+  task      Task?            @relation(fields: [taskId], references: [id])
+  actorId   String?
+  message   String
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  @@index([userId, readAt, createdAt])
+}
+
+// ---------- Audit log (append-only at app level) ----------
+
+model ActivityLog {
+  id         BigInt   @id @default(autoincrement())
+  actorId    String?
+  actor      User?    @relation(fields: [actorId], references: [id])
+  action     String
+  entityType String
+  entityId   String
+  jobId      String?
+  taskId     String?
+  meta       Json?
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([jobId, createdAt])
+  @@index([taskId, createdAt])
+}
