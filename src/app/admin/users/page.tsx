@@ -26,7 +26,7 @@ export default async function UsersPage() {
             <thead>
               <tr className="border-b border-gray-200 text-xs uppercase text-gray-500 dark:border-gray-700 dark:text-gray-400">
                 <th className="py-2 pr-4 font-medium">Name</th>
-                <th className="py-2 pr-4 font-medium">Email</th>
+                <th className="py-2 pr-4 font-medium">Username</th>
                 <th className="py-2 pr-4 font-medium">Role</th>
                 <th className="py-2 pr-4 font-medium">Status</th>
                 <th className="py-2 font-medium">Password</th>
@@ -39,7 +39,7 @@ export default async function UsersPage() {
                     {u.name}
                     {u.id === me.id && <span className="text-xs text-gray-400"> (you)</span>}
                   </td>
-                  <td className="py-2.5 pr-4 text-gray-600 dark:text-gray-300">{u.email}</td>
+                  <td className="py-2.5 pr-4 text-gray-600 dark:text-gray-300">{u.username}</td>
                   <td className="py-2.5 pr-4">
                     {u.id === me.id ? (
                       u.role.toLowerCase()
@@ -119,10 +119,17 @@ export default async function UsersPage() {
             className="rounded-md border border-gray-300 px-3 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-800"
           />
           <input
+            name="username"
+            type="text"
+            required
+            minLength={3}
+            placeholder="Username (used to sign in)"
+            className="rounded-md border border-gray-300 px-3 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-800"
+          />
+          <input
             name="email"
             type="email"
-            required
-            placeholder="name@company.com"
+            placeholder="Email (optional — only for notifications)"
             className="rounded-md border border-gray-300 px-3 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-800"
           />
           <input

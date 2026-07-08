@@ -1,12 +1,12 @@
 /**
- * Browser E2E for email+password auth.
- * Usage: npx tsx scripts/e2e-login.ts <base-url> <email> <password>
+ * Browser E2E for username+password auth.
+ * Usage: npx tsx scripts/e2e-login.ts <base-url> <username> <password>
  */
 import { chromium } from "playwright";
 
-const [base = "http://localhost:3000", email, password] = process.argv.slice(2);
-if (!email || !password) {
-  console.error("Usage: npx tsx scripts/e2e-login.ts <base-url> <email> <password>");
+const [base = "http://localhost:3000", username, password] = process.argv.slice(2);
+if (!username || !password) {
+  console.error("Usage: npx tsx scripts/e2e-login.ts <base-url> <username> <password>");
   process.exit(2);
 }
 
@@ -26,11 +26,11 @@ async function main() {
   check("unauthenticated redirected to /login", page.url().includes("/login"));
 
   // 2. Wrong password rejected with generic error, still on /login
-  await page.fill('input[name="email"]', email);
+  await page.fill('input[name="username"]', username);
   await page.fill('input[name="password"]', "definitely-wrong-password");
   await page.click('button:has-text("Sign in")');
   await page.waitForTimeout(2000);
-  const err = await page.getByText("Invalid email or password").count();
+  const err = await page.getByText("Invalid username or password").count();
   check("wrong password shows generic error", err > 0);
   check("still on /login after failure", page.url().includes("/login"));
 

@@ -22,11 +22,11 @@ export default async function LoginPage() {
             className="flex flex-col gap-3"
           >
             <input
-              name="email"
-              type="email"
+              name="username"
+              type="text"
               required
-              autoComplete="email"
-              placeholder="Email"
+              autoComplete="username"
+              placeholder="Username"
               className="rounded-md border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-800"
             />
             <input

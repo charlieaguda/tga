@@ -2,7 +2,7 @@
 
 Internal app for The Growth Academy: social-media job workflow — briefs, deliverable uploads to Google Drive, revision rounds, approvals, posting log, dashboards.
 
-**Stack:** Next.js (App Router) · Prisma + PostgreSQL · email + password accounts (bcrypt, DB sessions) · Google Drive (service account on a Shared Drive) · Resend (email) · Vercel (hosting + cron).
+**Stack:** Next.js (App Router) · Prisma + PostgreSQL · username + password accounts (bcrypt, DB sessions) · Google Drive (service account on a Shared Drive) · Resend (email) · Vercel (hosting + cron).
 
 ## Roles
 
@@ -34,13 +34,14 @@ npm run db:seed     # demo data + prints dev session tokens (no Google needed lo
 npm run dev         # http://localhost:3000
 ```
 
-Sign-in locally: every seeded user shares the password the seed prints (or paste a seeded token as the `authjs.session-token` cookie).
+Sign-in locally: `admin` / `ceo` / `manager1` / `manager2` / `editor1` / `editor2`, all with password `password123` (or paste a seeded token as the `authjs.session-token` cookie — the seed prints one per user).
 
 Checks:
 
 ```bash
 npx tsx scripts/verify-transitions.ts   # state machine + CAS acceptance checks
-npx tsx scripts/e2e.ts http://localhost:3000 <managerToken> <editorToken>  # browser E2E
+npx tsx scripts/e2e-login.ts http://localhost:3000 admin password123  # browser login E2E
+npx tsx scripts/e2e.ts http://localhost:3000 <managerToken> <editorToken>  # browser workflow E2E
 npm run lint && npx tsc --noEmit
 ```
 
@@ -59,9 +60,9 @@ Why a Shared Drive: service accounts have zero My Drive storage quota — upload
 
 ### 2. Accounts & sign-in
 
-Email + password accounts, managed entirely in the app:
+Username + password accounts, managed entirely in the app:
 
-- An **Admin creates each account** in `/admin/users` with a starting password (share it out-of-band); users change it under **My account**. No self-registration, no password reset by email — admins reset passwords from the Users screen.
+- An **Admin creates each account** in `/admin/users` — username, name, role, a starting password (share it out-of-band), and optionally an email (only used to send notification emails, not for sign-in). Users change their password under **My account**. No self-registration, no password reset by email — admins reset passwords from the Users screen.
 - Passwords are bcrypt-hashed (cost 12); login failures return one generic message (no account enumeration) with a constant-time compare.
 - Sessions are DB rows: deactivating a user or changing their role/password revokes their sessions instantly.
 - Set `AUTH_SECRET` (`npx auth secret`) and `AUTH_URL` (your production URL — https makes the session cookie `__Secure-` + `secure`).
@@ -74,7 +75,7 @@ Email + password accounts, managed entirely in the app:
 4. Create the first Admin user directly in the DB (one-time). Generate a bcrypt hash locally:
    `npx tsx -e "import b from 'bcryptjs'; console.log(b.hashSync(process.argv[1], 12))" 'your-password'`
    then:
-   `INSERT INTO "User" (id, email, name, role, "passwordHash") VALUES ('admin-1', 'you@yourdomain', 'Your Name', 'ADMIN', '<hash>');`
+   `INSERT INTO "User" (id, username, name, role, "passwordHash") VALUES ('admin-1', 'youradmin', 'Your Name', 'ADMIN', '<hash>');`
    Sign in and manage everyone else from `/admin/users`.
 
 ## How uploads work
@@ -88,7 +89,9 @@ Folder layout in the Shared Drive: `Clients/{client}/{job}/{taskId}-{title}/v{ro
 | Path | What it is |
 |---|---|
 | `prisma/schema.prisma` | Data model (tasks, submission rounds, files, audit log) |
-| `src/auth.ts` | Auth.js config + domain-restricted sign-in policy |
+| `src/auth.ts` | Auth.js config (session reader only) |
+| `src/lib/services/auth-credentials.ts` | Password hashing/verification, admin reset, self change |
+| `src/lib/auth-session.ts` | Mints/destroys the DB session used by username+password login |
 | `src/lib/permissions.ts` | The entire permission matrix (`authorize()`, deny-by-default) |
 | `src/lib/transitions.ts` | Task state machine (single source of truth) + CAS transition |
 | `src/lib/services/*.ts` | All mutations: tasks, jobs, admin, uploads |

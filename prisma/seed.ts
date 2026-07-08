@@ -1,26 +1,22 @@
 /**
  * Seed: demo users, clients, jobs, and tasks in every status.
- * In development it also mints one DB session per user and PRINTS the session
- * tokens so you can exercise the app without Google OAuth:
- *   curl -H "Cookie: authjs.session-token=<token>" http://localhost:3000/dashboard
- * Tokens are random per run and never stored in code.
+ * Every demo account uses the same fixed password below — fine for local
+ * testing since this script refuses to run against production.
  */
 import { randomBytes } from "node:crypto";
 import bcrypt from "bcryptjs";
 import { PrismaClient, Role, TaskStatus } from "@prisma/client";
 
 const db = new PrismaClient();
-const HD = "thegrowthacademy.com.au";
 
-// One random password per seed run for all demo users — printed at the end.
-const DEV_PASSWORD = `dev-${randomBytes(6).toString("hex")}`;
+const DEV_PASSWORD = "password123";
 const passwordHash = bcrypt.hashSync(DEV_PASSWORD, 12);
 
-async function user(email: string, name: string, role: Role) {
+async function user(username: string, name: string, role: Role) {
   return db.user.upsert({
-    where: { email },
+    where: { username },
     update: { role, isActive: true, passwordHash },
-    create: { email, name, role, passwordHash },
+    create: { username, name, role, passwordHash },
   });
 }
 
@@ -29,12 +25,12 @@ async function main() {
     throw new Error("Refusing to seed a production database");
   }
 
-  const admin = await user(`admin@${HD}`, "Alex Admin", "ADMIN");
-  const ceo = await user(`ceo@${HD}`, "Cameron CEO", "CEO");
-  const mgr1 = await user(`manager1@${HD}`, "Morgan Manager", "MANAGER");
-  const mgr2 = await user(`manager2@${HD}`, "Marley Manager", "MANAGER");
-  const ed1 = await user(`editor1@${HD}`, "Eddie Editor", "EDITOR");
-  const ed2 = await user(`editor2@${HD}`, "Evan Editor", "EDITOR");
+  const admin = await user("admin", "Alex Admin", "ADMIN");
+  const ceo = await user("ceo", "Cameron CEO", "CEO");
+  const mgr1 = await user("manager1", "Morgan Manager", "MANAGER");
+  const mgr2 = await user("manager2", "Marley Manager", "MANAGER");
+  const ed1 = await user("editor1", "Eddie Editor", "EDITOR");
+  const ed2 = await user("editor2", "Evan Editor", "EDITOR");
 
   const acme = await db.client.upsert({
     where: { name: "Acme Fitness" },
@@ -125,11 +121,11 @@ async function main() {
           expires: new Date(Date.now() + 7 * 86_400_000),
         },
       });
-      console.log(`  ${u.role.padEnd(8)} ${u.email.padEnd(40)} authjs.session-token=${token}`);
+      console.log(`  ${u.role.padEnd(8)} ${u.username.padEnd(12)} authjs.session-token=${token}`);
     }
   }
 
-  console.log(`\nAll demo users share this password: ${DEV_PASSWORD}`);
+  console.log(`\nAll demo accounts use password: ${DEV_PASSWORD}`);
   console.log("Seed complete.");
 }
 

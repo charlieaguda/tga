@@ -16,6 +16,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async session({ session, user }) {
       // `user` is the DB row (database sessions) — role is fresh every request.
       session.user.id = user.id;
+      session.user.username = user.username;
       session.user.role = user.role;
       session.user.isActive = user.isActive;
       return session;

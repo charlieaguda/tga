@@ -14,7 +14,8 @@ Internal Next.js (App Router) app: social-media job workflow (briefs → uploads
 - `npm run db:migrate` / `db:seed` / `db:studio`
 - `npm run dev` / `build` / `lint`; typecheck: `npx tsc --noEmit`
 - Acceptance checks: `npx tsx scripts/verify-transitions.ts`
-- Browser E2E: `npx tsx scripts/e2e.ts <url> <managerToken> <editorToken>` (tokens printed by seed)
+- Browser login E2E: `npx tsx scripts/e2e-login.ts <url> <username> <password>` (seed default: `admin` / `password123`)
+- Browser workflow E2E: `npx tsx scripts/e2e.ts <url> <managerToken> <editorToken>` (tokens printed by seed)
 
 ## Architecture rules (do not violate)
 
@@ -26,5 +27,5 @@ Internal Next.js (App Router) app: social-media job workflow (briefs → uploads
 - All Drive access via `src/lib/drive.ts` (backoff + concurrency cap + `supportsAllDrives`). DB stores Drive IDs; never resolve Drive items by name after creation.
 - Upload completion is server-verified against Drive inside a status-guarded transaction; approve/cancel/reassign invalidates pending `UploadSession`s.
 - User content renders as escaped plain text (`whitespace-pre-wrap`) — never as HTML.
-- Auth: email + password (bcrypt via `src/lib/services/auth-credentials.ts`) with database sessions minted by `src/lib/auth-session.ts` — NextAuth only READS sessions (`auth()`); there are no OAuth providers. Deactivate/role-change/password-change revokes sessions. `src/proxy.ts` is optimistic redirect only — not a security boundary.
+- Auth: username + password (bcrypt via `src/lib/services/auth-credentials.ts`) with database sessions minted by `src/lib/auth-session.ts` — NextAuth only READS sessions (`auth()`); there are no OAuth providers. `User.username` is the sign-in identifier (unique, required); `User.email` is optional and used only for notification emails. Deactivate/role-change/password-change revokes sessions. `src/proxy.ts` is optimistic redirect only — not a security boundary.
 - `ActionForm` dispatches manually (preventDefault + startTransition) to stop React 19's automatic form reset from wiping fields after a failed action — don't convert forms back to plain `<form action={...}>`.

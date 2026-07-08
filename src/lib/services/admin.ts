@@ -6,18 +6,29 @@ import { ValidationError } from "@/lib/errors";
 import { hashPassword } from "@/lib/services/auth-credentials";
 
 export async function createUser(input: {
-  email: string;
+  username: string;
   name: string;
   role: Role;
   password: string;
+  email?: string;
 }) {
   const actor = await authorize("user.manage");
-  const email = input.email.trim().toLowerCase();
+  const username = input.username.trim().toLowerCase();
+  if (!/^[a-z0-9._-]{3,32}$/.test(username))
+    throw new ValidationError(
+      "Username must be 3-32 characters: letters, numbers, dots, underscores, hyphens",
+    );
   const passwordHash = await hashPassword(input.password);
 
   return db.$transaction(async (tx) => {
     const user = await tx.user.create({
-      data: { email, name: input.name.trim(), role: input.role, passwordHash },
+      data: {
+        username,
+        email: input.email?.trim().toLowerCase() || null,
+        name: input.name.trim(),
+        role: input.role,
+        passwordHash,
+      },
     });
     await logActivity(tx, {
       actorId: actor.id,

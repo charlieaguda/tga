@@ -19,8 +19,8 @@ function assertPasswordPolicy(password: string) {
 }
 
 /** Returns the user on success, null on any failure (caller shows one generic error). */
-export async function verifyLogin(email: string, password: string) {
-  const user = await db.user.findUnique({ where: { email: email.trim().toLowerCase() } });
+export async function verifyLogin(username: string, password: string) {
+  const user = await db.user.findUnique({ where: { username: username.trim().toLowerCase() } });
   const ok = await bcrypt.compare(password, user?.passwordHash ?? DUMMY_HASH);
   if (!ok || !user?.isActive || !user.passwordHash) return null;
   return user;

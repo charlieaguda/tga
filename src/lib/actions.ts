@@ -57,15 +57,15 @@ const optionalDate = z
 
 export async function loginWithPassword(_prev: ActionResult, formData: FormData) {
   const parsed = z
-    .object({ email: z.string().email().max(200), password: z.string().min(1).max(200) })
+    .object({ username: z.string().min(1).max(100), password: z.string().min(1).max(200) })
     .safeParse(Object.fromEntries(formData));
-  if (!parsed.success) return { ok: false, error: "Enter your email and password" };
+  if (!parsed.success) return { ok: false, error: "Enter your username and password" };
 
-  const user = await credentials.verifyLogin(parsed.data.email, parsed.data.password);
+  const user = await credentials.verifyLogin(parsed.data.username, parsed.data.password);
   if (!user) {
     // Generic message + small delay: no account enumeration, slower brute force.
     await new Promise((r) => setTimeout(r, 300));
-    return { ok: false, error: "Invalid email or password" };
+    return { ok: false, error: "Invalid username or password" };
   }
   await createSessionForUser(user.id);
   redirect("/dashboard");
@@ -93,7 +93,8 @@ export async function changeOwnPassword(_prev: ActionResult, formData: FormData)
 export async function adminCreateUser(_prev: ActionResult, formData: FormData) {
   const parsed = z
     .object({
-      email: z.string().email().max(200),
+      username: z.string().min(3, "Username must be at least 3 characters").max(32),
+      email: z.string().trim().max(200).optional(),
       name: shortText,
       role: z.nativeEnum(Role),
       password: z.string().min(8, "Password must be at least 8 characters").max(200),

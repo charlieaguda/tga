@@ -59,7 +59,8 @@ enum UploadStatus {
 
 model User {
   id           String   @id @default(cuid())
-  email        String   @unique
+  username     String   @unique // sign-in identifier
+  email        String?  @unique // optional; only used to send notification emails
   name         String
   role         Role
   isActive     Boolean  @default(true)

@@ -6,6 +6,7 @@ export type SessionUser = {
   id: string;
   role: Role;
   name?: string | null;
+  username?: string | null;
   email?: string | null;
 };
 
@@ -64,7 +65,7 @@ export async function requireUser(): Promise<SessionUser> {
   const session = await auth();
   const user = session?.user;
   if (!user?.id || !user.isActive) throw new UnauthorizedError();
-  return { id: user.id, role: user.role, name: user.name, email: user.email };
+  return { id: user.id, role: user.role, name: user.name, username: user.username, email: user.email };
 }
 
 export async function authorize<T>(action: Action, resource?: T): Promise<SessionUser> {

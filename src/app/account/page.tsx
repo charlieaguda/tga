@@ -12,7 +12,7 @@ export default async function AccountPage() {
     <div className="mx-auto flex max-w-md flex-col gap-6">
       <h1 className="text-xl font-semibold">My account</h1>
       <p className="text-sm text-gray-500 dark:text-gray-400">
-        {user.name} · {user.email} · {user.role.toLowerCase()}
+        {user.name} · {user.username} · {user.role.toLowerCase()}
       </p>
       <div className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
