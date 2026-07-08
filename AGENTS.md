@@ -26,4 +26,5 @@ Internal Next.js (App Router) app: social-media job workflow (briefs → uploads
 - All Drive access via `src/lib/drive.ts` (backoff + concurrency cap + `supportsAllDrives`). DB stores Drive IDs; never resolve Drive items by name after creation.
 - Upload completion is server-verified against Drive inside a status-guarded transaction; approve/cancel/reassign invalidates pending `UploadSession`s.
 - User content renders as escaped plain text (`whitespace-pre-wrap`) — never as HTML.
-- Auth: database sessions; sign-in requires verified company-domain Google account AND a pre-created active `User` row. `src/proxy.ts` is optimistic redirect only — not a security boundary.
+- Auth: email + password (bcrypt via `src/lib/services/auth-credentials.ts`) with database sessions minted by `src/lib/auth-session.ts` — NextAuth only READS sessions (`auth()`); there are no OAuth providers. Deactivate/role-change/password-change revokes sessions. `src/proxy.ts` is optimistic redirect only — not a security boundary.
+- `ActionForm` dispatches manually (preventDefault + startTransition) to stop React 19's automatic form reset from wiping fields after a failed action — don't convert forms back to plain `<form action={...}>`.

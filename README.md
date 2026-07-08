@@ -2,7 +2,7 @@
 
 Internal app for The Growth Academy: social-media job workflow — briefs, deliverable uploads to Google Drive, revision rounds, approvals, posting log, dashboards.
 
-**Stack:** Next.js (App Router) · Prisma + PostgreSQL · Auth.js (Google Workspace sign-in) · Google Drive (service account on a Shared Drive) · Resend (email) · Vercel (hosting + cron).
+**Stack:** Next.js (App Router) · Prisma + PostgreSQL · email + password accounts (bcrypt, DB sessions) · Google Drive (service account on a Shared Drive) · Resend (email) · Vercel (hosting + cron).
 
 ## Roles
 
@@ -34,7 +34,7 @@ npm run db:seed     # demo data + prints dev session tokens (no Google needed lo
 npm run dev         # http://localhost:3000
 ```
 
-Sign-in locally: paste a seeded token as the `authjs.session-token` cookie, or configure real Google OAuth in `.env` (see `.env.example`).
+Sign-in locally: every seeded user shares the password the seed prints (or paste a seeded token as the `authjs.session-token` cookie).
 
 Checks:
 
@@ -57,22 +57,25 @@ npm run lint && npx tsc --noEmit
 
 Why a Shared Drive: service accounts have zero My Drive storage quota — uploads outside a Shared Drive fail with `storageQuotaExceeded`.
 
-### 2. Google OAuth (sign-in)
+### 2. Accounts & sign-in
 
-1. GCP → Credentials → OAuth client ID (Web application).
-2. Authorized redirect URI: `https://<your-domain>/api/auth/callback/google`.
-3. Set `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, `AUTH_SECRET` (`npx auth secret`), `AUTH_URL`, and `ALLOWED_GOOGLE_HD` (your Workspace domain).
+Email + password accounts, managed entirely in the app:
 
-Sign-in policy: company-domain Google accounts only (`hd` claim verified server-side), and only for users an Admin pre-created in **Users** — no auto-provisioning.
+- An **Admin creates each account** in `/admin/users` with a starting password (share it out-of-band); users change it under **My account**. No self-registration, no password reset by email — admins reset passwords from the Users screen.
+- Passwords are bcrypt-hashed (cost 12); login failures return one generic message (no account enumeration) with a constant-time compare.
+- Sessions are DB rows: deactivating a user or changing their role/password revokes their sessions instantly.
+- Set `AUTH_SECRET` (`npx auth secret`) and `AUTH_URL` (your production URL — https makes the session cookie `__Secure-` + `secure`).
 
 ### 3. Vercel
 
 1. Import the repo; set all env vars from `.env.example` (use the **pooled** Neon connection string for `DATABASE_URL`).
 2. Set `CRON_SECRET` — `vercel.json` schedules `/api/cron/overdue` and `/api/cron/reconcile` daily; Vercel sends it as the Bearer token automatically.
 3. Run migrations against Neon: `npx prisma migrate deploy`.
-4. Create the first Admin user directly in the DB (one-time):
-   `INSERT INTO "User" (id, email, name, role) VALUES ('admin-1', 'you@yourdomain', 'Your Name', 'ADMIN');`
-   then sign in with Google and manage everyone else from `/admin/users`.
+4. Create the first Admin user directly in the DB (one-time). Generate a bcrypt hash locally:
+   `npx tsx -e "import b from 'bcryptjs'; console.log(b.hashSync(process.argv[1], 12))" 'your-password'`
+   then:
+   `INSERT INTO "User" (id, email, name, role, "passwordHash") VALUES ('admin-1', 'you@yourdomain', 'Your Name', 'ADMIN', '<hash>');`
+   Sign in and manage everyone else from `/admin/users`.
 
 ## How uploads work
 
