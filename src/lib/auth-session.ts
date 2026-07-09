@@ -30,5 +30,14 @@ export async function destroySession() {
   const store = await cookies();
   const token = store.get(sessionCookieName())?.value;
   if (token) await db.session.deleteMany({ where: { sessionToken: token } });
-  store.delete(sessionCookieName());
+  // store.delete() omits `secure`, which browsers require to accept a
+  // Set-Cookie for a __Secure- prefixed name — the deletion would be
+  // silently ignored over https. Match the attributes used when setting it.
+  store.set(sessionCookieName(), "", {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: sessionCookieName().startsWith("__Secure-"),
+    path: "/",
+    maxAge: 0,
+  });
 }
