@@ -1,0 +1,23 @@
+runConfig:
+  minInstances: 0
+  maxInstances: 2
+
+env:
+  - variable: DATABASE_URL
+    secret: DATABASE_URL
+  - variable: AUTH_SECRET
+    secret: AUTH_SECRET
+  - variable: AUTH_URL
+    secret: AUTH_URL
+  - variable: DRIVE_SHARED_DRIVE_ID
+    secret: DRIVE_SHARED_DRIVE_ID
+  - variable: GOOGLE_OAUTH_CLIENT_ID
+    secret: GOOGLE_OAUTH_CLIENT_ID
+  - variable: GOOGLE_OAUTH_CLIENT_SECRET
+    secret: GOOGLE_OAUTH_CLIENT_SECRET
+  - variable: GOOGLE_OAUTH_REFRESH_TOKEN
+    secret: GOOGLE_OAUTH_REFRESH_TOKEN
+  - variable: EMAIL_FROM
+    secret: EMAIL_FROM
+  - variable: CRON_SECRET
+    secret: CRON_SECRET
