@@ -170,6 +170,7 @@ export default async function TaskPage(props: { params: Promise<{ id: string }> 
             action={taskAssign}
             submitLabel={task.status === "DRAFT" ? "Assign" : "Reassign"}
             className="flex max-w-md flex-col gap-2"
+            resetOnSuccess={false}
           >
             <input type="hidden" name="taskId" value={task.id} />
             <select name="assigneeId" required defaultValue={task.assigneeId ?? ""} className={inputCls}>

@@ -114,6 +114,7 @@ export default async function JobPage(props: { params: Promise<{ id: string }> }
             action={jobSetDefaultEditor}
             submitLabel="Save"
             className="flex max-w-md flex-col gap-2"
+            resetOnSuccess={false}
           >
             <input type="hidden" name="jobId" value={job.id} />
             <select
