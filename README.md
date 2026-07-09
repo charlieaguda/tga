@@ -67,11 +67,11 @@ Username + password accounts, managed entirely in the app:
 - Sessions are DB rows: deactivating a user or changing their role/password revokes their sessions instantly.
 - Set `AUTH_SECRET` (`npx auth secret`) and `AUTH_URL` (your production URL — https makes the session cookie `__Secure-` + `secure`).
 
-### 3. Vercel
+### 3. Vercel + Supabase
 
-1. Import the repo; set all env vars from `.env.example` (use the **pooled** Neon connection string for `DATABASE_URL`).
+1. Import the repo; set all env vars from `.env.example`. For `DATABASE_URL` use Supabase's **transaction pooler** connection string (`aws-0-<region>.pooler.supabase.com:6543`, `?pgbouncer=true&connection_limit=1`) — the session pooler (port 5432) has too low a connection cap for serverless traffic and will hang under load. `vercel.json` pins the function region (`syd1`) — keep it close to the Supabase project's region to avoid cross-region latency on every request.
 2. Set `CRON_SECRET` — `vercel.json` schedules `/api/cron/overdue` and `/api/cron/reconcile` daily; Vercel sends it as the Bearer token automatically.
-3. Run migrations against Neon: `npx prisma migrate deploy`.
+3. Run migrations against Supabase: `npx prisma migrate deploy` (use the **session pooler**, port 5432, for this one-off command — the transaction pooler doesn't support the advisory locks migrate needs).
 4. Create the first Admin user directly in the DB (one-time). Generate a bcrypt hash locally:
    `npx tsx -e "import b from 'bcryptjs'; console.log(b.hashSync(process.argv[1], 12))" 'your-password'`
    then:
