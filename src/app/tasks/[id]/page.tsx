@@ -62,6 +62,7 @@ export default async function TaskPage(props: { params: Promise<{ id: string }> 
   const me = { id: user.id, role: user.role, name: user.name, email: user.email };
   const allowed = allowedTransitions(me, task);
   const isAssignee = task.assigneeId === user.id;
+  const openSubmission = task.submissions.find((s) => s.submittedAt === null);
   const canAssign =
     (user.role === "ADMIN" || user.role === "CEO" ||
       (user.role === "MANAGER" && task.job.managerId === user.id)) &&
@@ -247,26 +248,28 @@ export default async function TaskPage(props: { params: Promise<{ id: string }> 
           </div>
         )}
 
-        {/* Editor: upload + submit controls on the open round (upload arrives with Drive integration) */}
+        {/* Editor: upload + submit controls on the open round */}
         {isAssignee && task.status === "IN_PROGRESS" && (
           <div className="mt-4 flex flex-col gap-3">
             {isDriveConfigured() ? (
-              <Uploader taskId={task.id} />
+              <Uploader taskId={task.id} initialFileCount={openSubmission?.files.length ?? 0} />
             ) : (
-              <p className="text-sm text-amber-600">
-                Google Drive isn&apos;t configured yet (GOOGLE_SA_KEY_JSON /
-                DRIVE_SHARED_DRIVE_ID) — uploads are disabled.
-              </p>
+              <>
+                <p className="text-sm text-amber-600">
+                  Google Drive isn&apos;t configured yet (GOOGLE_SA_KEY_JSON /
+                  DRIVE_SHARED_DRIVE_ID) — uploads are disabled.
+                </p>
+                <ActionForm action={taskSubmit} submitLabel="Submit for review" className="flex max-w-md flex-col gap-2">
+                  <input type="hidden" name="taskId" value={task.id} />
+                  <textarea
+                    name="note"
+                    rows={2}
+                    placeholder="What changed this round? (optional)"
+                    className={inputCls}
+                  />
+                </ActionForm>
+              </>
             )}
-            <ActionForm action={taskSubmit} submitLabel="Submit for review" className="flex max-w-md flex-col gap-2">
-              <input type="hidden" name="taskId" value={task.id} />
-              <textarea
-                name="note"
-                rows={2}
-                placeholder="What changed this round? (optional)"
-                className={inputCls}
-              />
-            </ActionForm>
           </div>
         )}
 

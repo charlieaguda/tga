@@ -16,12 +16,16 @@ export function ActionForm({
   children,
   className,
   resetOnSuccess = true,
+  disabled = false,
+  disabledHint,
 }: {
   action: (prev: ActionResult, formData: FormData) => Promise<ActionResult>;
   submitLabel: string;
   children: ReactNode;
   className?: string;
   resetOnSuccess?: boolean;
+  disabled?: boolean;
+  disabledHint?: string;
 }) {
   const [state, dispatch, pending] = useActionState(
     async (prev: ActionResult, formData: FormData) => action(prev, formData),
@@ -51,9 +55,10 @@ export function ActionForm({
     >
       {children}
       {!state.ok && state.error && <p className="text-sm text-red-600">{state.error}</p>}
+      {disabled && disabledHint && <p className="text-sm text-amber-600">{disabledHint}</p>}
       <button
         type="submit"
-        disabled={pending}
+        disabled={pending || disabled}
         className="self-start rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
       >
         {pending ? "Saving…" : submitLabel}

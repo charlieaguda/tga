@@ -52,7 +52,17 @@ export async function createTask(input: {
   if (job.status !== "ACTIVE") throw new ValidationError("Job is not active — new tasks are blocked");
   const actor = await authorize("task.create", job);
 
-  const task = await runTx(async (tx) => {
+  let assignee: { id: string; email: string | null } | null = null;
+  if (input.assigneeId) {
+    const candidate = await db.user.findUnique({ where: { id: input.assigneeId } });
+    if (!candidate?.isActive || candidate.role !== "EDITOR")
+      throw new ValidationError("Assignee must be an active editor");
+    if (!input.brief?.trim())
+      throw new ValidationError("Write a brief before assigning an editor at creation");
+    assignee = candidate;
+  }
+
+  const { task, emails } = await runTx(async (tx) => {
     const created = await tx.task.create({
       data: {
         jobId: job.id,
@@ -72,8 +82,25 @@ export async function createTask(input: {
       jobId: job.id,
       taskId: created.id,
     });
-    return created;
+    // Picking an editor at creation time must also move the task out of DRAFT —
+    // otherwise it sits "assigned" with no ASSIGNED-only actions (Start task, upload) ever visible.
+    let emails: Awaited<ReturnType<typeof createNotifications>> = [];
+    if (assignee) {
+      await transitionTask(tx, created, TaskStatus.ASSIGNED, actor);
+      emails = await createNotifications(tx, [
+        {
+          userId: assignee.id,
+          userEmail: assignee.email,
+          type: "TASK_ASSIGNED",
+          taskId: created.id,
+          actorId: actor.id,
+          message: `New task assigned: "${created.title}"`,
+        },
+      ]);
+    }
+    return { task: created, emails };
   });
+  await sendEmails(emails);
   return task;
 }
 
