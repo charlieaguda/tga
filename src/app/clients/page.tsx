@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
-import { clientCreate } from "@/lib/actions";
+import { clientCreate, clientSetActive } from "@/lib/actions";
+import { ActionButton } from "@/components/action-button";
 import { ActionForm } from "@/components/action-form";
 
 export default async function ClientsPage() {
@@ -12,7 +13,7 @@ export default async function ClientsPage() {
 
   const clients = await db.client.findMany({
     include: { jobs: { where: { status: { not: "ARCHIVED" } }, select: { id: true } } },
-    orderBy: { name: "asc" },
+    orderBy: [{ isActive: "desc" }, { name: "asc" }],
   });
 
   return (
@@ -25,22 +26,51 @@ export default async function ClientsPage() {
             <tr className="border-b border-gray-200 text-xs uppercase text-gray-500 dark:border-gray-700 dark:text-gray-400">
               <th className="py-2 pr-4 font-medium">Name</th>
               <th className="py-2 pr-4 font-medium">Active jobs</th>
-              <th className="py-2 font-medium">Notes</th>
+              <th className="py-2 pr-4 font-medium">Notes</th>
+              {user.role === "ADMIN" && <th className="py-2 font-medium">Status</th>}
             </tr>
           </thead>
           <tbody>
             {clients.map((c) => (
-              <tr key={c.id} className="border-b border-gray-100 last:border-0 dark:border-gray-800">
-                <td className="py-2.5 pr-4 font-medium">{c.name}</td>
+              <tr
+                key={c.id}
+                className={`border-b border-gray-100 last:border-0 dark:border-gray-800 ${!c.isActive ? "opacity-50" : ""}`}
+              >
+                <td className="py-2.5 pr-4 font-medium">
+                  {c.name}
+                  {!c.isActive && <span className="text-xs text-gray-400"> (inactive)</span>}
+                </td>
                 <td className="py-2.5 pr-4">{c.jobs.length}</td>
-                <td className="py-2.5 whitespace-pre-wrap text-gray-600 dark:text-gray-300">
+                <td className="py-2.5 pr-4 whitespace-pre-wrap text-gray-600 dark:text-gray-300">
                   {c.notes ?? "—"}
                 </td>
+                {user.role === "ADMIN" && (
+                  <td className="py-2.5">
+                    {c.isActive ? (
+                      <ActionButton
+                        action={clientSetActive.bind(null, c.id, false)}
+                        label="Deactivate"
+                        variant="danger"
+                        confirm={
+                          c.jobs.length > 0
+                            ? `${c.name} still has ${c.jobs.length} non-archived job(s) — archive them first.`
+                            : `Deactivate ${c.name}? They'll be hidden from new job/task creation.`
+                        }
+                      />
+                    ) : (
+                      <ActionButton
+                        action={clientSetActive.bind(null, c.id, true)}
+                        label="Reactivate"
+                        variant="success"
+                      />
+                    )}
+                  </td>
+                )}
               </tr>
             ))}
             {clients.length === 0 && (
               <tr>
-                <td colSpan={3} className="py-4 text-gray-500">
+                <td colSpan={user.role === "ADMIN" ? 4 : 3} className="py-4 text-gray-500">
                   No clients yet.
                 </td>
               </tr>

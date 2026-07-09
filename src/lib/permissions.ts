@@ -17,6 +17,7 @@ export type TaskResource = { assigneeId: string | null; job: JobResource };
 export type Action =
   | "user.manage"
   | "client.write"
+  | "client.deactivate"
   | "job.create"
   | "job.write"
   | "task.create"
@@ -44,6 +45,7 @@ const isAssignee = (u: SessionUser, task: TaskResource) =>
 const policy: Record<Action, (u: SessionUser, resource?: any) => boolean> = {
   "user.manage": (u) => u.role === "ADMIN",
   "client.write": (u) => u.role === "ADMIN" || u.role === "MANAGER",
+  "client.deactivate": (u) => u.role === "ADMIN",
   "job.create": (u) => u.role === "ADMIN" || u.role === "MANAGER",
   "job.write": (u, job: JobResource) => managesJob(u, job),
   "task.create": (u, job: JobResource) => u.role === "CEO" || managesJob(u, job),

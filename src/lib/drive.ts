@@ -1,31 +1,57 @@
 /**
  * Single entry point for all Google Drive access.
- * - Service account (JWT) auth from GOOGLE_SA_KEY_JSON (base64, server-only).
+ * - Production: service account (JWT) auth from GOOGLE_SA_KEY_JSON (base64, server-only).
+ * - Dev fallback: if GOOGLE_OAUTH_REFRESH_TOKEN is set (org policy blocking SA
+ *   key creation, etc.), authenticate as a real Google user instead — same
+ *   Shared Drive, same API calls below, only the credential source differs.
+ *   Get a refresh token with `npx tsx scripts/get-drive-refresh-token.ts`.
  * - Every call goes through withBackoff(): exponential backoff + jitter on
  *   429 / 5xx / 403 rate-limit errors, and a process-wide concurrency cap.
- * - All calls set supportsAllDrives (files live in a Shared Drive; the SA has
- *   no My Drive quota).
+ * - All calls set supportsAllDrives (files normally live in a Shared Drive;
+ *   a service account has no My Drive quota of its own). Folder-lookup
+ *   queries are always scoped by a known parent ID, so they work unchanged
+ *   whether DRIVE_SHARED_DRIVE_ID points at a real Shared Drive (Workspace)
+ *   or a plain folder in someone's My Drive (personal account, dev/testing).
  */
 import { google, type drive_v3 } from "googleapis";
 
+type DriveAuthClient = InstanceType<typeof google.auth.JWT> | InstanceType<typeof google.auth.OAuth2>;
+
+// Despite the name, this may be a Shared Drive ID or a regular My Drive
+// folder ID — see file header. Either way it's just "the root container
+// to create Clients/... underneath."
 const SHARED_DRIVE_ID = () => {
   const id = process.env.DRIVE_SHARED_DRIVE_ID;
   if (!id) throw new Error("DRIVE_SHARED_DRIVE_ID is not configured");
   return id;
 };
 
-let cached: { drive: drive_v3.Drive; auth: InstanceType<typeof google.auth.JWT> } | null = null;
+let cached: { drive: drive_v3.Drive; auth: DriveAuthClient } | null = null;
 
 function getDrive() {
   if (cached) return cached;
-  const raw = process.env.GOOGLE_SA_KEY_JSON;
-  if (!raw) throw new Error("GOOGLE_SA_KEY_JSON is not configured");
-  const key = JSON.parse(Buffer.from(raw, "base64").toString("utf8"));
-  const auth = new google.auth.JWT({
-    email: key.client_email,
-    key: key.private_key,
-    scopes: ["https://www.googleapis.com/auth/drive"],
-  });
+
+  const refreshToken = process.env.GOOGLE_OAUTH_REFRESH_TOKEN;
+  let auth: DriveAuthClient;
+  if (refreshToken) {
+    const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID;
+    const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET;
+    if (!clientId || !clientSecret)
+      throw new Error("GOOGLE_OAUTH_CLIENT_ID / GOOGLE_OAUTH_CLIENT_SECRET are not configured");
+    const client = new google.auth.OAuth2(clientId, clientSecret);
+    client.setCredentials({ refresh_token: refreshToken });
+    auth = client;
+  } else {
+    const raw = process.env.GOOGLE_SA_KEY_JSON;
+    if (!raw)
+      throw new Error("Neither GOOGLE_SA_KEY_JSON nor GOOGLE_OAUTH_REFRESH_TOKEN is configured");
+    const key = JSON.parse(Buffer.from(raw, "base64").toString("utf8"));
+    auth = new google.auth.JWT({
+      email: key.client_email,
+      key: key.private_key,
+      scopes: ["https://www.googleapis.com/auth/drive"],
+    });
+  }
   cached = { drive: google.drive({ version: "v3", auth }), auth };
   return cached;
 }
@@ -106,11 +132,13 @@ function escapeQuery(value: string): string {
  */
 export async function ensureFolder(parentId: string, name: string): Promise<string> {
   const { drive } = getDrive();
+  // No driveId/corpora here: the query is already scoped by parentId, which
+  // works identically whether that parent lives in a Shared Drive or a
+  // regular My Drive folder. supportsAllDrives/includeItemsFromAllDrives are
+  // harmless no-ops outside a Shared Drive.
   const existing = await withBackoff(() =>
     drive.files.list({
       q: `name = '${escapeQuery(name)}' and '${parentId}' in parents and mimeType = '${FOLDER_MIME}' and trashed = false`,
-      driveId: SHARED_DRIVE_ID(),
-      corpora: "drive",
       includeItemsFromAllDrives: true,
       supportsAllDrives: true,
       fields: "files(id)",
@@ -196,6 +224,12 @@ export async function createResumableSession(input: {
           "Content-Type": "application/json; charset=UTF-8",
           "X-Upload-Content-Type": input.mimeType,
           "X-Upload-Content-Length": String(input.sizeBytes),
+          // Drive only enables CORS on the resulting session URI for the
+          // origin present on THIS request. The browser makes the follow-up
+          // chunk PUTs directly, so without this header those PUTs are
+          // rejected cross-origin even though this init call itself is
+          // server-to-server.
+          Origin: process.env.AUTH_URL ?? "http://localhost:3000",
         },
         body: JSON.stringify({
           name: input.fileName,
@@ -223,8 +257,6 @@ export async function findFileByAppProperty(key: string, value: string): Promise
   const res = await withBackoff(() =>
     drive.files.list({
       q: `appProperties has { key='${escapeQuery(key)}' and value='${escapeQuery(value)}' } and trashed = false`,
-      driveId: SHARED_DRIVE_ID(),
-      corpora: "drive",
       includeItemsFromAllDrives: true,
       supportsAllDrives: true,
       fields: "files(id)",
@@ -240,5 +272,6 @@ export function driveViewLink(driveFileId: string): string {
 }
 
 export function isDriveConfigured(): boolean {
-  return !!process.env.GOOGLE_SA_KEY_JSON && !!process.env.DRIVE_SHARED_DRIVE_ID;
+  const hasCredential = !!process.env.GOOGLE_SA_KEY_JSON || !!process.env.GOOGLE_OAUTH_REFRESH_TOKEN;
+  return hasCredential && !!process.env.DRIVE_SHARED_DRIVE_ID;
 }

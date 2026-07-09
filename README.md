@@ -84,6 +84,17 @@ Editor's browser asks the server to open a Drive **resumable upload session** (s
 
 Folder layout in the Shared Drive: `Clients/{client}/{job}/{taskId}-{title}/v{round}/` — the DB stores Drive IDs; renaming folders in Drive never breaks the app.
 
+**CORS note:** the resumable session's browser-CORS allowlist is set by the `Origin` header present on the request that *creates* the session — Drive doesn't retroactively enable it. `createResumableSession` in `src/lib/drive.ts` sends `Origin: ${AUTH_URL}` explicitly for this reason; without it, the browser's follow-up chunk PUTs fail cross-origin even though session creation itself succeeds server-side.
+
+### Testing locally without a service account
+
+If your org's `iam.disableServiceAccountKeyCreation` policy blocks SA key downloads, or you're testing with a personal Gmail (no Shared Drives — Workspace-only), authenticate as yourself instead:
+
+1. Create a **plain folder** in My Drive (personal) or a real **Shared Drive** (Workspace) — either works, `DRIVE_SHARED_DRIVE_ID` just needs *a* container folder ID; the code never uses Shared-Drive-specific `driveId`/`corpora` params, only parent-scoped queries, so both work identically.
+2. Cloud Console → Credentials → **OAuth client ID → Desktop app** (a different credential type than SA keys — unaffected by that org policy).
+3. `npx tsx scripts/get-drive-refresh-token.ts <client-id> <client-secret>` — one-time browser consent, prints `GOOGLE_OAUTH_CLIENT_ID` / `_SECRET` / `_REFRESH_TOKEN` to paste into `.env`.
+4. `src/lib/drive.ts` prefers `GOOGLE_OAUTH_REFRESH_TOKEN` over `GOOGLE_SA_KEY_JSON` when both are unset/set — same Drive API calls either way, only the credential source differs.
+
 ## Key files
 
 | Path | What it is |

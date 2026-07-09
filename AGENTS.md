@@ -17,6 +17,10 @@ Internal Next.js (App Router) app: social-media job workflow (briefs → uploads
 - Browser login E2E: `npx tsx scripts/e2e-login.ts <url> <username> <password>` (seed default: `admin` / `password123`)
 - Browser workflow E2E: `npx tsx scripts/e2e.ts <url> <managerToken> <editorToken>` (tokens printed by seed)
 
+## Data model (prisma/schema.prisma)
+
+`Client → Job (managerId, optional defaultEditorId) → Task (status, assigneeId) → Submission (round, one per revision) → File | UploadSession`, plus `ReviewAction` (≤1 per Submission), `Comment`, `Notification`, `ActivityLog`. `Task.status` enum is the state machine driven by `src/lib/transitions.ts`; a new `Submission` row opens each time a task re-enters `IN_PROGRESS` (round = previous max + 1). `File.driveFileId` is the only durable pointer into Drive — folder IDs are cached on `Client`/`Job`/`Task`/`Submission` rows, never re-derived by name.
+
 ## Architecture rules (do not violate)
 
 - **All mutations go through `src/lib/services/*`** — never call Prisma writes from pages/routes directly. Services do: load → `authorize()` → validate → transaction (CAS transition + activity log + notification rows) → emails after commit.

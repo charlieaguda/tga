@@ -21,6 +21,32 @@ export async function createClient(input: { name: string; notes?: string }) {
   });
 }
 
+export async function setClientActive(clientId: string, isActive: boolean) {
+  const client = await db.client.findUnique({ where: { id: clientId } });
+  if (!client) throw new ValidationError("Client not found");
+  const actor = await authorize("client.deactivate");
+
+  if (!isActive) {
+    const activeJobs = await db.job.count({
+      where: { clientId, status: { not: "ARCHIVED" } },
+    });
+    if (activeJobs > 0)
+      throw new ValidationError(
+        `Client has ${activeJobs} job(s) that aren't archived — archive them first`,
+      );
+  }
+
+  await db.$transaction(async (tx) => {
+    await tx.client.update({ where: { id: clientId }, data: { isActive } });
+    await logActivity(tx, {
+      actorId: actor.id,
+      action: isActive ? "client.reactivated" : "client.deactivated",
+      entityType: "client",
+      entityId: clientId,
+    });
+  });
+}
+
 export async function createJob(input: {
   clientId: string;
   title: string;
@@ -58,6 +84,30 @@ export async function createJob(input: {
       jobId: job.id,
     });
     return job;
+  });
+}
+
+export async function setJobDefaultEditor(jobId: string, editorId: string | null) {
+  const job = await db.job.findUnique({ where: { id: jobId } });
+  if (!job) throw new ValidationError("Job not found");
+  const actor = await authorize("job.write", job);
+
+  if (editorId) {
+    const editor = await db.user.findUnique({ where: { id: editorId } });
+    if (!editor?.isActive || editor.role !== "EDITOR")
+      throw new ValidationError("Default editor must be an active editor");
+  }
+
+  await db.$transaction(async (tx) => {
+    await tx.job.update({ where: { id: jobId }, data: { defaultEditorId: editorId } });
+    await logActivity(tx, {
+      actorId: actor.id,
+      action: "job.default_editor_changed",
+      entityType: "job",
+      entityId: jobId,
+      jobId,
+      meta: { from: job.defaultEditorId, to: editorId },
+    });
   });
 }
 

@@ -66,19 +66,20 @@ model User {
   isActive     Boolean  @default(true)
   passwordHash String? // bcrypt; null = cannot sign in yet (admin must set a password)
   image        String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  managedJobs    Job[]           @relation("JobManager")
-  createdTasks   Task[]          @relation("TaskCreator")
-  assignedTasks  Task[]          @relation("TaskAssignee")
-  submissions    Submission[]
-  reviews        ReviewAction[]
-  comments       Comment[]
-  uploadedFiles  File[]
-  uploadSessions UploadSession[]
-  notifications  Notification[]
-  activities     ActivityLog[]
+  managedJobs       Job[]           @relation("JobManager")
+  defaultEditorJobs Job[]           @relation("JobDefaultEditor")
+  createdTasks      Task[]          @relation("TaskCreator")
+  assignedTasks     Task[]          @relation("TaskAssignee")
+  submissions       Submission[]
+  reviews           ReviewAction[]
+  comments          Comment[]
+  uploadedFiles     File[]
+  uploadSessions    UploadSession[]
+  notifications     Notification[]
+  activities        ActivityLog[]
 
   accounts Account[]
   sessions Session[]
@@ -127,17 +128,19 @@ model Client {
 }
 
 model Job {
-  id            String    @id @default(cuid())
-  clientId      String
-  client        Client    @relation(fields: [clientId], references: [id])
-  managerId     String
-  manager       User      @relation("JobManager", fields: [managerId], references: [id])
-  title         String
-  description   String?
-  status        JobStatus @default(ACTIVE)
-  driveFolderId String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id              String    @id @default(cuid())
+  clientId        String
+  client          Client    @relation(fields: [clientId], references: [id])
+  managerId       String
+  manager         User      @relation("JobManager", fields: [managerId], references: [id])
+  defaultEditorId String?
+  defaultEditor   User?     @relation("JobDefaultEditor", fields: [defaultEditorId], references: [id])
+  title           String
+  description     String?
+  status          JobStatus @default(ACTIVE)
+  driveFolderId   String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   tasks Task[]
 
@@ -148,27 +151,27 @@ model Job {
 // ---------- Tasks ----------
 
 model Task {
-  id            String     @id @default(cuid())
-  jobId         String
-  job           Job        @relation(fields: [jobId], references: [id])
-  createdById   String
-  createdBy     User       @relation("TaskCreator", fields: [createdById], references: [id])
-  assigneeId    String?
-  assignee      User?      @relation("TaskAssignee", fields: [assigneeId], references: [id])
-  title         String
-  brief         String     @default("")
-  referenceLink String?
-  status        TaskStatus @default(DRAFT)
-  dueAt         DateTime?
-  postedAt      DateTime?
-  postUrl       String?
-  driveFolderId String?
-  followUpOfId  String?
-  followUpOf    Task?      @relation("TaskFollowUp", fields: [followUpOfId], references: [id])
-  followUps     Task[]     @relation("TaskFollowUp")
+  id                    String     @id @default(cuid())
+  jobId                 String
+  job                   Job        @relation(fields: [jobId], references: [id])
+  createdById           String
+  createdBy             User       @relation("TaskCreator", fields: [createdById], references: [id])
+  assigneeId            String?
+  assignee              User?      @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  title                 String
+  brief                 String     @default("")
+  referenceLink         String?
+  status                TaskStatus @default(DRAFT)
+  dueAt                 DateTime?
+  postedAt              DateTime?
+  postUrl               String?
+  driveFolderId         String?
+  followUpOfId          String?
+  followUpOf            Task?      @relation("TaskFollowUp", fields: [followUpOfId], references: [id])
+  followUps             Task[]     @relation("TaskFollowUp")
   lastOverdueNotifiedAt DateTime?
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
+  createdAt             DateTime   @default(now())
+  updatedAt             DateTime   @updatedAt
 
   submissions   Submission[]
   comments      Comment[]
@@ -183,16 +186,16 @@ model Task {
 // ---------- Revision model ----------
 
 model Submission {
-  id            String   @id @default(cuid())
+  id            String    @id @default(cuid())
   taskId        String
-  task          Task     @relation(fields: [taskId], references: [id])
+  task          Task      @relation(fields: [taskId], references: [id])
   round         Int
   submittedById String
-  submittedBy   User     @relation(fields: [submittedById], references: [id])
+  submittedBy   User      @relation(fields: [submittedById], references: [id])
   note          String?
   driveFolderId String?
   submittedAt   DateTime?
-  createdAt     DateTime @default(now())
+  createdAt     DateTime  @default(now())
 
   files          File[]
   review         ReviewAction?

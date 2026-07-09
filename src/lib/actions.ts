@@ -165,6 +165,20 @@ export async function jobSetStatus(jobId: string, status: JobStatus) {
   return guard(() => jobs.setJobStatus(id.parse(jobId), z.nativeEnum(JobStatus).parse(status)));
 }
 
+export async function clientSetActive(clientId: string, isActive: boolean) {
+  return guard(() => jobs.setClientActive(id.parse(clientId), isActive));
+}
+
+export async function jobSetDefaultEditor(_prev: ActionResult, formData: FormData) {
+  const parsed = z
+    .object({ jobId: id, editorId: z.string().trim().optional() })
+    .safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
+  return guard(() =>
+    jobs.setJobDefaultEditor(parsed.data.jobId, parsed.data.editorId || null),
+  );
+}
+
 // ---------- Tasks ----------
 
 export async function taskCreate(_prev: ActionResult, formData: FormData) {

@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
-import { adminReassignJob, jobSetStatus, taskCreate } from "@/lib/actions";
+import { adminReassignJob, jobSetDefaultEditor, jobSetStatus, taskCreate } from "@/lib/actions";
 import { ActionButton } from "@/components/action-button";
 import { ActionForm } from "@/components/action-form";
 import { JobStatusBadge } from "@/components/status-badge";
@@ -18,6 +18,7 @@ export default async function JobPage(props: { params: Promise<{ id: string }> }
     include: {
       client: true,
       manager: true,
+      defaultEditor: true,
       tasks: {
         include: { job: { include: { client: true } }, assignee: true },
         orderBy: [{ status: "asc" }, { dueAt: { sort: "asc", nulls: "last" } }],
@@ -57,6 +58,7 @@ export default async function JobPage(props: { params: Promise<{ id: string }> }
         <JobStatusBadge status={job.status} />
         <span className="text-sm text-gray-500 dark:text-gray-400">
           {job.client.name} · managed by {job.manager.name}
+          {job.defaultEditor && <> · default editor {job.defaultEditor.name}</>}
         </span>
         {manages && (
           <span className="ml-auto flex gap-2">
@@ -99,6 +101,37 @@ export default async function JobPage(props: { params: Promise<{ id: string }> }
         <TaskTable tasks={tasks} empty="No tasks in this job yet." />
       </section>
 
+      {manages && editors.length > 0 && (
+        <section className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+            Default editor for this job
+          </h2>
+          <p className="mb-2 text-xs text-gray-500 dark:text-gray-400">
+            Pre-fills the editor when creating new tasks under this job — each task can still be
+            reassigned individually.
+          </p>
+          <ActionForm
+            action={jobSetDefaultEditor}
+            submitLabel="Save"
+            className="flex max-w-md flex-col gap-2"
+          >
+            <input type="hidden" name="jobId" value={job.id} />
+            <select
+              name="editorId"
+              defaultValue={job.defaultEditorId ?? ""}
+              className="rounded-md border border-gray-300 px-3 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-800"
+            >
+              <option value="">No default editor</option>
+              {editors.map((e) => (
+                <option key={e.id} value={e.id}>
+                  {e.name}
+                </option>
+              ))}
+            </select>
+          </ActionForm>
+        </section>
+      )}
+
       {canCreateTask && job.status === "ACTIVE" && (
         <section className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
@@ -133,12 +166,14 @@ export default async function JobPage(props: { params: Promise<{ id: string }> }
             </label>
             <select
               name="assigneeId"
+              defaultValue={job.defaultEditorId ?? ""}
               className="rounded-md border border-gray-300 px-3 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-800"
             >
               <option value="">Editor (assign later)</option>
               {editors.map((e) => (
                 <option key={e.id} value={e.id}>
                   {e.name}
+                  {e.id === job.defaultEditorId ? " (default)" : ""}
                 </option>
               ))}
             </select>
