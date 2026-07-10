@@ -4,11 +4,11 @@ import { useState, useTransition } from "react";
 import type { ActionResult } from "@/lib/actions";
 
 const VARIANTS = {
-  primary: "bg-blue-600 text-white hover:bg-blue-700",
+  primary: "bg-brand-600 text-white hover:bg-brand-700",
   success: "bg-emerald-600 text-white hover:bg-emerald-700",
   danger: "bg-red-600 text-white hover:bg-red-700",
   neutral:
-    "border border-gray-300 text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-800",
+    "border border-slate-300 text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800",
 } as const;
 
 export function ActionButton({
@@ -30,7 +30,7 @@ export function ActionButton({
       <button
         type="button"
         disabled={pending}
-        className={`rounded-md px-3 py-1.5 text-sm font-medium disabled:opacity-50 ${VARIANTS[variant]}`}
+        className={`cursor-pointer rounded-lg px-3 py-1.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${VARIANTS[variant]}`}
         onClick={() => {
           if (confirm && !window.confirm(confirm)) return;
           setError(null);

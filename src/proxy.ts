@@ -19,5 +19,5 @@ export default function proxy(req: NextRequest) {
 
 export const config = {
   // API routes self-protect (401/403 JSON via requireUser/authorize) — pages only here.
-  matcher: ["/((?!api/|_next/static|_next/image|favicon.ico).*)"],
+  matcher: ["/((?!api/|_next/static|_next/image|favicon.ico|logo.webp).*)"],
 };

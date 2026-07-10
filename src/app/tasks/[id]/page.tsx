@@ -20,20 +20,10 @@ import { Uploader } from "@/components/uploader";
 import { TaskAttachmentUploader } from "@/components/file-drop-uploader";
 import { driveViewLink, isDriveConfigured } from "@/lib/drive";
 import { fmtDate, fmtDateTime, isOverdue } from "@/lib/format";
+import { Section, FileLink } from "@/components/ui";
 
 const inputCls =
-  "rounded-md border border-gray-300 px-3 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-800";
-
-function Card({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
-      <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-        {title}
-      </h2>
-      {children}
-    </section>
-  );
-}
+  "rounded-lg border border-slate-300 px-3 py-1.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-slate-600 dark:bg-slate-800";
 
 export default async function TaskPage(props: { params: Promise<{ id: string }> }) {
   const session = await auth();
@@ -104,13 +94,17 @@ export default async function TaskPage(props: { params: Promise<{ id: string }> 
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-xl font-semibold">{task.title}</h1>
+        <h1 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">
+          {task.title}
+        </h1>
         <TaskStatusBadge status={task.status} />
-        {isOverdue(task) && <span className="text-sm font-semibold text-red-600">Overdue</span>}
+        {isOverdue(task) && (
+          <span className="text-sm font-semibold text-red-600 dark:text-red-400">Overdue</span>
+        )}
       </div>
-      <p className="text-sm text-gray-500 dark:text-gray-400">
+      <p className="text-sm text-slate-500 dark:text-slate-400">
         {task.job.client.name} ·{" "}
-        <Link href={`/jobs/${task.job.id}`} className="hover:underline">
+        <Link href={`/jobs/${task.job.id}`} className="text-brand-600 hover:underline dark:text-brand-500">
           {task.job.title}
         </Link>{" "}
         · manager {task.job.manager.name} · editor {task.assignee?.name ?? "unassigned"} · due{" "}
@@ -118,7 +112,12 @@ export default async function TaskPage(props: { params: Promise<{ id: string }> 
         {task.postUrl && (
           <>
             {" · "}
-            <a href={task.postUrl} className="text-blue-600 hover:underline" rel="noreferrer noopener" target="_blank">
+            <a
+              href={task.postUrl}
+              className="text-brand-600 hover:underline dark:text-brand-500"
+              rel="noreferrer noopener"
+              target="_blank"
+            >
               live post
             </a>
           </>
@@ -134,8 +133,10 @@ export default async function TaskPage(props: { params: Promise<{ id: string }> 
           <ActionButton action={taskStartRevision.bind(null, task.id)} label="Start revision" />
         )}
         {allowed.includes("CANCELLED") && (
-          <details className="rounded-md border border-gray-300 px-3 py-1.5 text-sm dark:border-gray-600">
-            <summary className="cursor-pointer select-none text-red-600">Cancel task…</summary>
+          <details className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm dark:border-slate-600">
+            <summary className="cursor-pointer select-none text-red-600 dark:text-red-400">
+              Cancel task…
+            </summary>
             <ActionForm action={taskCancel} submitLabel="Confirm cancel" className="mt-2 flex flex-col gap-2">
               <input type="hidden" name="taskId" value={task.id} />
               <input name="reason" required placeholder="Reason (required)" className={inputCls} />
@@ -145,7 +146,7 @@ export default async function TaskPage(props: { params: Promise<{ id: string }> 
       </div>
 
       {/* ---------- Brief ---------- */}
-      <Card title="Brief">
+      <Section title="Brief">
         {/* Plain text rendering — user content is never injected as HTML */}
         <p className="whitespace-pre-wrap text-sm">{task.brief || "No brief yet."}</p>
         {task.referenceLink && (
@@ -153,7 +154,7 @@ export default async function TaskPage(props: { params: Promise<{ id: string }> 
             Reference:{" "}
             <a
               href={task.referenceLink}
-              className="text-blue-600 hover:underline"
+              className="text-brand-600 hover:underline dark:text-brand-500"
               rel="noreferrer noopener"
               target="_blank"
             >
@@ -173,11 +174,11 @@ export default async function TaskPage(props: { params: Promise<{ id: string }> 
             <TaskAttachmentUploader taskId={task.id} />
           </div>
         )}
-      </Card>
+      </Section>
 
       {/* ---------- Assign ---------- */}
       {canAssign && editors.length > 0 && (
-        <Card title={task.status === "DRAFT" ? "Assign editor" : "Reassign editor"}>
+        <Section title={task.status === "DRAFT" ? "Assign editor" : "Reassign editor"}>
           <ActionForm
             action={taskAssign}
             submitLabel={task.status === "DRAFT" ? "Assign" : "Reassign"}
@@ -193,33 +194,39 @@ export default async function TaskPage(props: { params: Promise<{ id: string }> 
                 </option>
               ))}
             </select>
-            <label className="text-xs text-gray-500 dark:text-gray-400">
+            <label className="text-xs text-slate-500 dark:text-slate-400">
               Due date
               <input type="date" name="dueAt" className={`ml-2 ${inputCls}`} />
             </label>
           </ActionForm>
-        </Card>
+        </Section>
       )}
 
       {/* ---------- Deliverables by round ---------- */}
-      <Card title="Deliverables">
+      <Section title="Deliverables">
         {task.submissions.length === 0 ? (
-          <p className="text-sm text-gray-500">No rounds yet — the editor starts the task to open round 1.</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            No rounds yet — the editor starts the task to open round 1.
+          </p>
         ) : (
           <div className="flex flex-col gap-4">
             {task.submissions.map((s) => (
-              <div key={s.id} className="rounded-lg border border-gray-200 p-3 dark:border-gray-700">
+              <div key={s.id} className="rounded-lg border border-slate-200 p-3 dark:border-slate-700">
                 <div className="flex flex-wrap items-center gap-2 text-sm">
                   <span className="font-semibold">Round {s.round}</span>
                   {s.submittedAt ? (
-                    <span className="text-gray-500">submitted {fmtDateTime(s.submittedAt)}</span>
+                    <span className="text-slate-500 dark:text-slate-400">
+                      submitted {fmtDateTime(s.submittedAt)}
+                    </span>
                   ) : (
-                    <span className="text-amber-600">open — not yet submitted</span>
+                    <span className="text-amber-600 dark:text-amber-400">open — not yet submitted</span>
                   )}
                   {s.review && (
                     <span
                       className={
-                        s.review.decision === "APPROVED" ? "text-emerald-600" : "text-orange-600"
+                        s.review.decision === "APPROVED"
+                          ? "text-emerald-600 dark:text-emerald-400"
+                          : "text-orange-600 dark:text-orange-400"
                       }
                     >
                       {s.review.decision === "APPROVED" ? "✓ approved" : "changes requested"} by{" "}
@@ -227,30 +234,27 @@ export default async function TaskPage(props: { params: Promise<{ id: string }> 
                     </span>
                   )}
                 </div>
-                {s.note && <p className="mt-1 whitespace-pre-wrap text-sm text-gray-600 dark:text-gray-300">{s.note}</p>}
+                {s.note && (
+                  <p className="mt-1 whitespace-pre-wrap text-sm text-slate-600 dark:text-slate-300">
+                    {s.note}
+                  </p>
+                )}
                 {s.review?.comment && (
-                  <p className="mt-1 whitespace-pre-wrap rounded bg-orange-50 p-2 text-sm dark:bg-orange-950">
+                  <p className="mt-1 whitespace-pre-wrap rounded-lg bg-orange-50 p-2 text-sm dark:bg-orange-950">
                     {s.review.comment}
                   </p>
                 )}
                 {s.files.length === 0 ? (
-                  <p className="mt-2 text-sm text-gray-400">No files in this round.</p>
+                  <p className="mt-2 text-sm text-slate-400 dark:text-slate-500">No files in this round.</p>
                 ) : (
                   <ul className="mt-2 flex flex-col gap-1 text-sm">
                     {s.files.map((f) => (
-                      <li key={f.id} className="flex items-center gap-2">
-                        <a
-                          href={driveViewLink(f.driveFileId)}
-                          target="_blank"
-                          rel="noreferrer noopener"
-                          className="text-blue-600 hover:underline"
-                        >
-                          📄 {f.storedName}
-                        </a>
-                        <span className="text-xs text-gray-400">
-                          {(Number(f.sizeBytes) / 1024 / 1024).toFixed(1)} MB
-                        </span>
-                      </li>
+                      <FileLink
+                        key={f.id}
+                        href={driveViewLink(f.driveFileId)}
+                        name={f.storedName}
+                        sizeBytes={f.sizeBytes}
+                      />
                     ))}
                   </ul>
                 )}
@@ -266,7 +270,7 @@ export default async function TaskPage(props: { params: Promise<{ id: string }> 
               <Uploader taskId={task.id} initialFileCount={openSubmission?.files.length ?? 0} />
             ) : (
               <>
-                <p className="text-sm text-amber-600">
+                <p className="text-sm text-amber-600 dark:text-amber-400">
                   Google Drive isn&apos;t configured yet (GOOGLE_SA_KEY_JSON /
                   DRIVE_SHARED_DRIVE_ID) — uploads are disabled.
                 </p>
@@ -286,7 +290,7 @@ export default async function TaskPage(props: { params: Promise<{ id: string }> 
 
         {/* Manager: review controls */}
         {task.status === "SUBMITTED" && allowed.includes("APPROVED") && (
-          <div className="mt-4 flex flex-col gap-3 border-t border-gray-200 pt-4 dark:border-gray-700">
+          <div className="mt-4 flex flex-col gap-3 border-t border-slate-200 pt-4 dark:border-slate-700">
             <ActionForm action={taskReview} submitLabel="Approve" className="flex max-w-md flex-col gap-2">
               <input type="hidden" name="taskId" value={task.id} />
               <input type="hidden" name="decision" value="APPROVED" />
@@ -307,40 +311,42 @@ export default async function TaskPage(props: { params: Promise<{ id: string }> 
 
         {/* Manager: mark posted */}
         {task.status === "APPROVED" && allowed.includes("POSTED") && (
-          <div className="mt-4 border-t border-gray-200 pt-4 dark:border-gray-700">
+          <div className="mt-4 border-t border-slate-200 pt-4 dark:border-slate-700">
             <ActionForm action={taskMarkPosted} submitLabel="Mark as posted" className="flex max-w-md flex-col gap-2">
               <input type="hidden" name="taskId" value={task.id} />
               <input name="postUrl" placeholder="Live post URL (optional, https://…)" className={inputCls} />
             </ActionForm>
           </div>
         )}
-      </Card>
+      </Section>
 
       {/* ---------- Timeline ---------- */}
-      <Card title="Activity & comments">
+      <Section title="Activity & comments">
         <ul className="flex flex-col gap-3">
           {timeline.map((item) => (
             <li key={item.key} className="text-sm">
-              <span className="text-xs text-gray-400">{fmtDateTime(item.at)}</span>{" "}
+              <span className="text-xs text-slate-400 dark:text-slate-500">{fmtDateTime(item.at)}</span>{" "}
               <span className="font-medium">{item.who}</span>{" "}
               {item.kind === "comment" ? (
-                <span className="mt-0.5 block whitespace-pre-wrap rounded-md bg-gray-50 p-2 dark:bg-gray-800">
+                <span className="mt-0.5 block whitespace-pre-wrap rounded-lg bg-slate-50 p-2 dark:bg-slate-800">
                   {item.text}
                 </span>
               ) : (
-                <span className="text-gray-600 dark:text-gray-300">{item.text}</span>
+                <span className="text-slate-600 dark:text-slate-300">{item.text}</span>
               )}
             </li>
           ))}
-          {timeline.length === 0 && <li className="text-sm text-gray-500">Nothing yet.</li>}
+          {timeline.length === 0 && (
+            <li className="text-sm text-slate-500 dark:text-slate-400">Nothing yet.</li>
+          )}
         </ul>
-        <div className="mt-4 border-t border-gray-200 pt-4 dark:border-gray-700">
+        <div className="mt-4 border-t border-slate-200 pt-4 dark:border-slate-700">
           <ActionForm action={commentAdd} submitLabel="Comment" className="flex flex-col gap-2">
             <input type="hidden" name="taskId" value={task.id} />
             <textarea name="body" rows={2} required placeholder="Write a comment…" className={inputCls} />
           </ActionForm>
         </div>
-      </Card>
+      </Section>
     </div>
   );
 }

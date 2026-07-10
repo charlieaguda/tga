@@ -10,20 +10,10 @@ import { MonthCalendar } from "@/components/month-calendar";
 import { CATEGORY_LABELS, CLIENT_WRITABLE_CATEGORIES, FILE_CATEGORIES } from "@/lib/file-categories";
 import { driveViewLink, isDriveConfigured } from "@/lib/drive";
 import { fmtDate } from "@/lib/format";
+import { Section, FileLink } from "@/components/ui";
 
 const inputCls =
-  "rounded-md border border-gray-300 px-3 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-800";
-
-function Card({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
-      <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-        {title}
-      </h2>
-      {children}
-    </section>
-  );
-}
+  "rounded-lg border border-slate-300 px-3 py-1.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-slate-600 dark:bg-slate-800";
 
 export default async function ClientHubDetailPage(props: {
   params: Promise<{ id: string }>;
@@ -79,9 +69,11 @@ export default async function ClientHubDetailPage(props: {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-xl font-semibold">{client.name}</h1>
+        <h1 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">
+          {client.name}
+        </h1>
         {client.offboardedAt && (
-          <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-400">
+          <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-400">
             Offboarded {fmtDate(client.offboardedAt)}
           </span>
         )}
@@ -98,22 +90,22 @@ export default async function ClientHubDetailPage(props: {
       </div>
 
       {!isDriveConfigured() && (
-        <p className="text-sm text-amber-600">
+        <p className="text-sm text-amber-600 dark:text-amber-400">
           Google Drive isn&apos;t configured yet (GOOGLE_SA_KEY_JSON / DRIVE_SHARED_DRIVE_ID) —
           file uploads are disabled.
         </p>
       )}
 
-      <Card title="Notes">
+      <Section title="Notes">
         {client.notionUrl ? (
           <div className="flex flex-col gap-2">
             <iframe
               src={client.notionUrl}
-              className="h-[70vh] w-full rounded-lg border border-gray-200 dark:border-gray-800"
+              className="h-[70vh] w-full rounded-lg border border-slate-200 dark:border-slate-800"
             />
             {canManage && (
               <details>
-                <summary className="cursor-pointer select-none text-xs text-blue-600 hover:underline">
+                <summary className="cursor-pointer select-none text-xs text-brand-600 hover:underline dark:text-brand-500">
                   Change linked page…
                 </summary>
                 <ActionForm
@@ -139,30 +131,18 @@ export default async function ClientHubDetailPage(props: {
             <input name="notionUrl" placeholder="https://www.notion.so/…" className={inputCls} />
           </ActionForm>
         ) : (
-          <p className="text-sm text-gray-500">No notes page linked yet.</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">No notes page linked yet.</p>
         )}
-      </Card>
+      </Section>
 
       {FILE_CATEGORIES.map((category) => (
-        <Card key={category} title={CATEGORY_LABELS[category]}>
+        <Section key={category} title={CATEGORY_LABELS[category]}>
           {(filesByCategory.get(category)?.length ?? 0) === 0 ? (
-            <p className="text-sm text-gray-400">No files yet.</p>
+            <p className="text-sm text-slate-400 dark:text-slate-500">No files yet.</p>
           ) : (
             <ul className="flex flex-col gap-1 text-sm">
               {filesByCategory.get(category)!.map((f) => (
-                <li key={f.id} className="flex items-center gap-2">
-                  <a
-                    href={driveViewLink(f.driveFileId)}
-                    target="_blank"
-                    rel="noreferrer noopener"
-                    className="text-blue-600 hover:underline"
-                  >
-                    📄 {f.storedName}
-                  </a>
-                  <span className="text-xs text-gray-400">
-                    {(Number(f.sizeBytes) / 1024 / 1024).toFixed(1)} MB
-                  </span>
-                </li>
+                <FileLink key={f.id} href={driveViewLink(f.driveFileId)} name={f.storedName} sizeBytes={f.sizeBytes} />
               ))}
             </ul>
           )}
@@ -171,17 +151,17 @@ export default async function ClientHubDetailPage(props: {
               <ClientFileUploader clientId={client.id} category={category} />
             </div>
           )}
-        </Card>
+        </Section>
       ))}
 
-      <Card title="Upload activity">
+      <Section title="Upload activity">
         <MonthCalendar
           year={year}
           month={month}
           activeDays={activeDays}
           baseHref={`/client-hub/${client.id}`}
         />
-      </Card>
+      </Section>
     </div>
   );
 }

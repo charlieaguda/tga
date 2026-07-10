@@ -9,13 +9,13 @@ export type TaskRow = Prisma.TaskGetPayload<{
 
 export function TaskTable({ tasks, empty }: { tasks: TaskRow[]; empty: string }) {
   if (tasks.length === 0)
-    return <p className="py-4 text-sm text-gray-500 dark:text-gray-400">{empty}</p>;
+    return <p className="py-4 text-sm text-slate-500 dark:text-slate-400">{empty}</p>;
 
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[640px] text-left text-sm">
         <thead>
-          <tr className="border-b border-gray-200 text-xs uppercase text-gray-500 dark:border-gray-700 dark:text-gray-400">
+          <tr className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500 dark:border-slate-700 dark:text-slate-400">
             <th className="py-2 pr-4 font-medium">Task</th>
             <th className="py-2 pr-4 font-medium">Client / Job</th>
             <th className="py-2 pr-4 font-medium">Status</th>
@@ -27,25 +27,25 @@ export function TaskTable({ tasks, empty }: { tasks: TaskRow[]; empty: string })
           {tasks.map((t) => (
             <tr
               key={t.id}
-              className="border-b border-gray-100 last:border-0 dark:border-gray-800"
+              className="border-b border-slate-100 last:border-0 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800/50"
             >
               <td className="py-2.5 pr-4">
-                <Link href={`/tasks/${t.id}`} className="font-medium hover:underline">
+                <Link href={`/tasks/${t.id}`} className="font-medium text-slate-900 hover:text-brand-600 hover:underline dark:text-slate-100 dark:hover:text-brand-500">
                   {t.title}
                 </Link>
               </td>
-              <td className="py-2.5 pr-4 text-gray-600 dark:text-gray-300">
+              <td className="py-2.5 pr-4 text-slate-600 dark:text-slate-300">
                 {t.job.client.name}
-                <span className="text-gray-400"> · {t.job.title}</span>
+                <span className="text-slate-400 dark:text-slate-500"> · {t.job.title}</span>
               </td>
               <td className="py-2.5 pr-4">
                 <TaskStatusBadge status={t.status} />
               </td>
-              <td className="py-2.5 pr-4 text-gray-600 dark:text-gray-300">
+              <td className="py-2.5 pr-4 text-slate-600 dark:text-slate-300">
                 {t.assignee?.name ?? "—"}
               </td>
               <td
-                className={`py-2.5 ${isOverdue(t) ? "font-semibold text-red-600" : "text-gray-600 dark:text-gray-300"}`}
+                className={`py-2.5 ${isOverdue(t) ? "font-semibold text-red-600 dark:text-red-400" : "text-slate-600 dark:text-slate-300"}`}
               >
                 {fmtDate(t.dueAt)}
                 {isOverdue(t) && " (overdue)"}

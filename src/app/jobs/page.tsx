@@ -5,6 +5,10 @@ import { db } from "@/lib/db";
 import { jobCreate } from "@/lib/actions";
 import { ActionForm } from "@/components/action-form";
 import { JobStatusBadge } from "@/components/status-badge";
+import { PageHeader, Section, EmptyState } from "@/components/ui";
+
+const inputCls =
+  "rounded-lg border border-slate-300 px-3 py-1.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-slate-600 dark:bg-slate-800";
 
 export default async function JobsPage() {
   const session = await auth();
@@ -39,62 +43,64 @@ export default async function JobsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-xl font-semibold">Jobs</h1>
+      <PageHeader title="Jobs" />
 
-      <div className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
-        <table className="w-full text-left text-sm">
-          <thead>
-            <tr className="border-b border-gray-200 text-xs uppercase text-gray-500 dark:border-gray-700 dark:text-gray-400">
-              <th className="py-2 pr-4 font-medium">Job</th>
-              <th className="py-2 pr-4 font-medium">Client</th>
-              <th className="py-2 pr-4 font-medium">Manager</th>
-              <th className="py-2 pr-4 font-medium">Status</th>
-              <th className="py-2 font-medium">Open tasks</th>
-            </tr>
-          </thead>
-          <tbody>
-            {jobs.map((j) => (
-              <tr key={j.id} className="border-b border-gray-100 last:border-0 dark:border-gray-800">
-                <td className="py-2.5 pr-4">
-                  <Link href={`/jobs/${j.id}`} className="font-medium hover:underline">
-                    {j.title}
-                  </Link>
-                </td>
-                <td className="py-2.5 pr-4">{j.client.name}</td>
-                <td className="py-2.5 pr-4 text-gray-600 dark:text-gray-300">{j.manager.name}</td>
-                <td className="py-2.5 pr-4">
-                  <JobStatusBadge status={j.status} />
-                </td>
-                <td className="py-2.5">{j.tasks.length}</td>
-              </tr>
-            ))}
-            {jobs.length === 0 && (
-              <tr>
-                <td colSpan={5} className="py-4 text-gray-500">
-                  No jobs yet.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      <Section title={`All jobs (${jobs.length})`}>
+        {jobs.length === 0 ? (
+          <EmptyState>No jobs yet.</EmptyState>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500 dark:border-slate-700 dark:text-slate-400">
+                  <th className="py-2 pr-4 font-medium">Job</th>
+                  <th className="py-2 pr-4 font-medium">Client</th>
+                  <th className="py-2 pr-4 font-medium">Manager</th>
+                  <th className="py-2 pr-4 font-medium">Status</th>
+                  <th className="py-2 font-medium">Open tasks</th>
+                </tr>
+              </thead>
+              <tbody>
+                {jobs.map((j) => (
+                  <tr
+                    key={j.id}
+                    className="border-b border-slate-100 last:border-0 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800/50"
+                  >
+                    <td className="py-2.5 pr-4">
+                      <Link
+                        href={`/jobs/${j.id}`}
+                        className="font-medium text-slate-900 hover:text-brand-600 hover:underline dark:text-slate-100 dark:hover:text-brand-500"
+                      >
+                        {j.title}
+                      </Link>
+                    </td>
+                    <td className="py-2.5 pr-4 text-slate-600 dark:text-slate-300">{j.client.name}</td>
+                    <td className="py-2.5 pr-4 text-slate-600 dark:text-slate-300">{j.manager.name}</td>
+                    <td className="py-2.5 pr-4">
+                      <JobStatusBadge status={j.status} />
+                    </td>
+                    <td className="py-2.5 text-slate-600 dark:text-slate-300">{j.tasks.length}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Section>
 
       {canCreate && (
-        <div className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-            New job
-          </h2>
+        <Section title="New job">
           {clients.length === 0 ? (
-            <p className="text-sm text-gray-500">
-              Add a <Link className="underline" href="/clients">client</Link> first.
-            </p>
+            <EmptyState>
+              Add a{" "}
+              <Link className="font-medium text-brand-600 hover:underline dark:text-brand-500" href="/clients">
+                client
+              </Link>{" "}
+              first.
+            </EmptyState>
           ) : (
             <ActionForm action={jobCreate} submitLabel="Create job" className="flex max-w-md flex-col gap-2">
-              <select
-                name="clientId"
-                required
-                className="rounded-md border border-gray-300 px-3 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-800"
-              >
+              <select name="clientId" required className={inputCls}>
                 <option value="">Select client…</option>
                 {clients.map((c) => (
                   <option key={c.id} value={c.id}>
@@ -106,19 +112,11 @@ export default async function JobsPage() {
                 name="title"
                 required
                 placeholder='Job title, e.g. "Instagram management 2026"'
-                className="rounded-md border border-gray-300 px-3 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-800"
+                className={inputCls}
               />
-              <textarea
-                name="description"
-                rows={2}
-                placeholder="Description (optional)"
-                className="rounded-md border border-gray-300 px-3 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-800"
-              />
+              <textarea name="description" rows={2} placeholder="Description (optional)" className={inputCls} />
               {user.role === "ADMIN" && managers.length > 0 && (
-                <select
-                  name="managerId"
-                  className="rounded-md border border-gray-300 px-3 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-800"
-                >
+                <select name="managerId" className={inputCls}>
                   <option value="">Owning manager (default: me)</option>
                   {managers.map((m) => (
                     <option key={m.id} value={m.id}>
@@ -129,7 +127,7 @@ export default async function JobsPage() {
               )}
             </ActionForm>
           )}
-        </div>
+        </Section>
       )}
     </div>
   );

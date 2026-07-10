@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import Image from "next/image";
 import Link from "next/link";
 import "./globals.css";
 import { auth } from "@/auth";
 import { logout } from "@/lib/actions";
 import { NotificationBell } from "@/components/notification-bell";
+import { NavLink } from "@/components/nav-links";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -34,44 +36,38 @@ export default async function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-gray-100">
+      <body className="min-h-full flex flex-col text-slate-900 dark:text-slate-100">
         {user && (
-          <header className="border-b border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
-            <nav className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3">
-              <Link href="/dashboard" className="font-semibold">
-                TGA Workflow
+          <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/80 backdrop-blur dark:border-slate-800 dark:bg-slate-950/80">
+            <nav className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-1 gap-y-2 px-4 py-3">
+              <Link href="/dashboard" className="mr-3 flex items-center gap-2">
+                <Image
+                  src="/logo.webp"
+                  alt="The Growth Academy"
+                  width={112}
+                  height={28}
+                  priority
+                  className="h-7 w-auto rounded-md bg-white p-0.5"
+                />
               </Link>
-              <Link href="/dashboard" className="text-sm hover:underline">
-                Dashboard
-              </Link>
-              {user.role !== "CLIENT" && (
-                <Link href="/jobs" className="text-sm hover:underline">
-                  Jobs
-                </Link>
-              )}
-              <Link href="/client-hub" className="text-sm hover:underline">
-                Client Hub
-              </Link>
+              <NavLink href="/dashboard">Dashboard</NavLink>
+              {user.role !== "CLIENT" && <NavLink href="/jobs">Jobs</NavLink>}
+              <NavLink href="/client-hub">Client Hub</NavLink>
               {(user.role === "ADMIN" || user.role === "MANAGER") && (
-                <Link href="/clients" className="text-sm hover:underline">
-                  Clients
-                </Link>
+                <NavLink href="/clients">Clients</NavLink>
               )}
-              {user.role === "ADMIN" && (
-                <Link href="/admin/users" className="text-sm hover:underline">
-                  Users
-                </Link>
-              )}
+              {user.role === "ADMIN" && <NavLink href="/admin/users">Users</NavLink>}
               <span className="ml-auto flex items-center gap-3 text-sm">
                 <NotificationBell />
                 <Link
                   href="/account"
-                  className="text-gray-500 hover:underline dark:text-gray-400"
+                  className="text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
                 >
-                  {user.name} · {user.role.toLowerCase()}
+                  {user.name} <span className="text-slate-400 dark:text-slate-600">·</span>{" "}
+                  {user.role.toLowerCase()}
                 </Link>
                 <form action={logout}>
-                  <button className="rounded-md border border-gray-300 px-2.5 py-1 text-xs hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-800">
+                  <button className="cursor-pointer rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800">
                     Sign out
                   </button>
                 </form>

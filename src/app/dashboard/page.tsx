@@ -6,23 +6,25 @@ import { db } from "@/lib/db";
 import { TaskTable } from "@/components/task-table";
 import { TaskStatusBadge } from "@/components/status-badge";
 import { isOverdue } from "@/lib/format";
+import { PageHeader, Section, StatTile, EmptyState } from "@/components/ui";
 
 const include = { job: { include: { client: true } }, assignee: true } satisfies Prisma.TaskInclude;
 const OPEN: TaskStatus[] = ["ASSIGNED", "IN_PROGRESS", "SUBMITTED", "CHANGES_REQUESTED", "APPROVED"];
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function WorkloadBar({ name, count, max, overdue }: { name: string; count: number; max: number; overdue?: number }) {
+  const pct = max > 0 ? Math.max(8, Math.round((count / max) * 100)) : 0;
   return (
-    <section className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
-      <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-        {title}
-      </h2>
-      {children}
-    </section>
+    <div className="flex items-center gap-3">
+      <span className="w-32 shrink-0 truncate text-sm font-medium text-slate-700 dark:text-slate-300">{name}</span>
+      <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+        <div className="h-full rounded-full bg-brand-500" style={{ width: `${pct}%` }} />
+      </div>
+      <span className="w-10 shrink-0 text-right text-sm tabular-nums text-slate-500 dark:text-slate-400">
+        {count}
+      </span>
+      {!!overdue && <span className="shrink-0 text-xs font-medium text-red-600 dark:text-red-400">{overdue} late</span>}
+    </div>
   );
-}
-
-function StatTile({ value, tone = "default" }: { value: number | string; tone?: "default" | "danger" }) {
-  return <p className={`text-3xl font-bold ${tone === "danger" ? "text-red-600" : ""}`}>{value}</p>;
 }
 
 async function EditorDashboard(userId: string) {
@@ -46,12 +48,12 @@ async function EditorDashboard(userId: string) {
   ]);
   const overdueCount = [...queue, ...changesRequested].filter(isOverdue).length;
   return (
-    <div className="flex flex-col gap-4">
-      <h1 className="text-xl font-semibold">My queue</h1>
+    <div className="flex flex-col gap-5">
+      <PageHeader title="My queue" />
       {overdueCount > 0 && (
-        <p className="text-sm font-semibold text-red-600">
+        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-400">
           {overdueCount} of your tasks are overdue.
-        </p>
+        </div>
       )}
       {changesRequested.length > 0 && (
         <Section title="Changes requested — action needed">
@@ -105,12 +107,14 @@ async function ManagerDashboard(userId: string) {
   }
   const workloadEntries = [...workload.entries()].sort((a, b) => b[1] - a[1]);
 
+  const maxWorkload = Math.max(1, ...workloadEntries.map(([, n]) => n));
+  const myOverdueCount = myOpen.filter(isOverdue).length;
   return (
-    <div className="flex flex-col gap-4">
-      <h1 className="text-xl font-semibold">My clients</h1>
+    <div className="flex flex-col gap-5">
+      <PageHeader title="My clients" />
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Section title="Overdue (mine)">
-          <StatTile value={myOpen.filter(isOverdue).length} tone={myOpen.filter(isOverdue).length ? "danger" : "default"} />
+          <StatTile value={myOverdueCount} tone={myOverdueCount ? "danger" : "default"} />
         </Section>
         <Section title="Needs an editor">
           <StatTile value={drafts.length} />
@@ -129,14 +133,11 @@ async function ManagerDashboard(userId: string) {
         <TaskTable tasks={myOpen} empty="No open tasks in your jobs." />
       </Section>
       <Section title="Editor workload">
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-3">
           {workloadEntries.map(([name, count]) => (
-            <div key={name} className="flex items-center gap-2">
-              <span className="w-40 truncate font-medium">{name}</span>
-              <span className="text-sm">×{count}</span>
-            </div>
+            <WorkloadBar key={name} name={name} count={count} max={maxWorkload} />
           ))}
-          {workloadEntries.length === 0 && <p className="text-sm text-gray-500">No open tasks in your jobs.</p>}
+          {workloadEntries.length === 0 && <EmptyState>No open tasks in your jobs.</EmptyState>}
         </div>
       </Section>
       <Section title="Recently posted">
@@ -187,15 +188,16 @@ async function CompanyDashboard() {
     }))
     .sort((a, b) => b.openCount - a.openCount);
 
+  const maxEditorWorkload = Math.max(1, ...editorWorkloadSorted.map((e) => e.openCount));
   return (
-    <div className="flex flex-col gap-4">
-      <h1 className="text-xl font-semibold">Company overview</h1>
+    <div className="flex flex-col gap-5">
+      <PageHeader title="Company overview" />
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Section title="Overdue tasks">
           <StatTile value={overdue.length} tone={overdue.length ? "danger" : "default"} />
         </Section>
         <Section title="Active clients">
-          <StatTile value={byClient.length} />
+          <StatTile value={byClient.length} tone="brand" />
         </Section>
         <Section title="Needs an editor">
           <StatTile value={draftsCount} />
@@ -212,13 +214,13 @@ async function CompanyDashboard() {
               .map((s) => ({ s, n: tasks.filter((t) => t.status === s).length }))
               .filter((x) => x.n > 0);
             return (
-              <div key={c.id} className="flex flex-wrap items-center gap-2">
-                <span className="w-40 truncate font-medium">{c.name}</span>
+              <div key={c.id} className="flex flex-wrap items-center gap-2 border-b border-slate-100 pb-3 last:border-0 last:pb-0 dark:border-slate-800">
+                <span className="w-40 shrink-0 truncate font-medium text-slate-700 dark:text-slate-300">{c.name}</span>
                 {counts.length === 0 ? (
-                  <span className="text-sm text-amber-600">empty pipeline</span>
+                  <span className="text-sm text-amber-600 dark:text-amber-400">empty pipeline</span>
                 ) : (
                   counts.map(({ s, n }) => (
-                    <span key={s} className="flex items-center gap-1 text-sm">
+                    <span key={s} className="flex items-center gap-1 text-sm text-slate-500 dark:text-slate-400">
                       <TaskStatusBadge status={s} /> ×{n}
                     </span>
                   ))
@@ -227,26 +229,18 @@ async function CompanyDashboard() {
             );
           })}
           {byClient.length === 0 && (
-            <p className="text-sm text-gray-500">
-              No clients yet. <Link className="underline" href="/clients">Add one</Link>.
-            </p>
+            <EmptyState>
+              No clients yet. <Link className="font-medium text-brand-600 hover:underline dark:text-brand-500" href="/clients">Add one</Link>.
+            </EmptyState>
           )}
         </div>
       </Section>
       <Section title="Editor workload">
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-3">
           {editorWorkloadSorted.map((e) => (
-            <div key={e.name} className="flex items-center gap-2">
-              <span className="w-40 truncate font-medium">{e.name}</span>
-              <span className="text-sm">×{e.openCount} open</span>
-              {e.overdueCount > 0 && (
-                <span className="text-sm text-red-600">{e.overdueCount} overdue</span>
-              )}
-            </div>
+            <WorkloadBar key={e.name} name={e.name} count={e.openCount} max={maxEditorWorkload} overdue={e.overdueCount} />
           ))}
-          {editorWorkloadSorted.length === 0 && (
-            <p className="text-sm text-gray-500">No active editors.</p>
-          )}
+          {editorWorkloadSorted.length === 0 && <EmptyState>No active editors.</EmptyState>}
         </div>
       </Section>
       {overdue.length > 0 && (

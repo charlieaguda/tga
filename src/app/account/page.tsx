@@ -2,6 +2,10 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { changeOwnPassword } from "@/lib/actions";
 import { ActionForm } from "@/components/action-form";
+import { PageHeader, Section } from "@/components/ui";
+
+const inputCls =
+  "rounded-lg border border-slate-300 px-3 py-1.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-slate-600 dark:bg-slate-800";
 
 export default async function AccountPage() {
   const session = await auth();
@@ -10,15 +14,12 @@ export default async function AccountPage() {
 
   return (
     <div className="mx-auto flex max-w-md flex-col gap-6">
-      <h1 className="text-xl font-semibold">My account</h1>
-      <p className="text-sm text-gray-500 dark:text-gray-400">
-        {user.name} · {user.username} · {user.role.toLowerCase()}
-      </p>
-      <div className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-          Change password
-        </h2>
-        <p className="mb-3 text-xs text-gray-500 dark:text-gray-400">
+      <PageHeader
+        title="My account"
+        description={`${user.name} · ${user.username} · ${user.role.toLowerCase()}`}
+      />
+      <Section title="Change password">
+        <p className="mb-3 text-xs text-slate-500 dark:text-slate-400">
           You&apos;ll be signed out everywhere and need to sign in again.
         </p>
         <ActionForm action={changeOwnPassword} submitLabel="Change password" className="flex flex-col gap-2">
@@ -28,7 +29,7 @@ export default async function AccountPage() {
             required
             autoComplete="current-password"
             placeholder="Current password"
-            className="rounded-md border border-gray-300 px-3 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-800"
+            className={inputCls}
           />
           <input
             name="newPassword"
@@ -37,10 +38,10 @@ export default async function AccountPage() {
             minLength={8}
             autoComplete="new-password"
             placeholder="New password (min 8 characters)"
-            className="rounded-md border border-gray-300 px-3 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-800"
+            className={inputCls}
           />
         </ActionForm>
-      </div>
+      </Section>
     </div>
   );
 }

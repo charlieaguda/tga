@@ -6,6 +6,10 @@ import { ActionButton } from "@/components/action-button";
 import { ActionForm } from "@/components/action-form";
 import { JobStatusBadge } from "@/components/status-badge";
 import { TaskTable } from "@/components/task-table";
+import { Section } from "@/components/ui";
+
+const inputCls =
+  "rounded-lg border border-slate-300 px-3 py-1.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-slate-600 dark:bg-slate-800";
 
 export default async function JobPage(props: { params: Promise<{ id: string }> }) {
   const session = await auth();
@@ -55,9 +59,11 @@ export default async function JobPage(props: { params: Promise<{ id: string }> }
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-xl font-semibold">{job.title}</h1>
+        <h1 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">
+          {job.title}
+        </h1>
         <JobStatusBadge status={job.status} />
-        <span className="text-sm text-gray-500 dark:text-gray-400">
+        <span className="text-sm text-slate-500 dark:text-slate-400">
           {job.client.name} · managed by {job.manager.name}
           {job.defaultEditor && <> · default editor {job.defaultEditor.name}</>}
         </span>
@@ -90,24 +96,18 @@ export default async function JobPage(props: { params: Promise<{ id: string }> }
       </div>
 
       {job.description && (
-        <p className="whitespace-pre-wrap text-sm text-gray-600 dark:text-gray-300">
+        <p className="whitespace-pre-wrap text-sm text-slate-600 dark:text-slate-300">
           {job.description}
         </p>
       )}
 
-      <section className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
-        <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-          Tasks
-        </h2>
+      <Section title="Tasks">
         <TaskTable tasks={tasks} empty="No tasks in this job yet." />
-      </section>
+      </Section>
 
       {manages && editors.length > 0 && (
-        <section className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-            Default editor for this job
-          </h2>
-          <p className="mb-2 text-xs text-gray-500 dark:text-gray-400">
+        <Section title="Default editor for this job">
+          <p className="mb-2 text-xs text-slate-500 dark:text-slate-400">
             Pre-fills the editor when creating new tasks under this job — each task can still be
             reassigned individually.
           </p>
@@ -118,11 +118,7 @@ export default async function JobPage(props: { params: Promise<{ id: string }> }
             resetOnSuccess={false}
           >
             <input type="hidden" name="jobId" value={job.id} />
-            <select
-              name="editorId"
-              defaultValue={job.defaultEditorId ?? ""}
-              className="rounded-md border border-gray-300 px-3 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-800"
-            >
+            <select name="editorId" defaultValue={job.defaultEditorId ?? ""} className={inputCls}>
               <option value="">No default editor</option>
               {editors.map((e) => (
                 <option key={e.id} value={e.id}>
@@ -131,46 +127,35 @@ export default async function JobPage(props: { params: Promise<{ id: string }> }
               ))}
             </select>
           </ActionForm>
-        </section>
+        </Section>
       )}
 
       {canCreateTask && job.status === "ACTIVE" && (
-        <section className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-            New task
-          </h2>
+        <Section title="New task">
           <ActionForm action={taskCreate} submitLabel="Create task" className="flex max-w-lg flex-col gap-2">
             <input type="hidden" name="jobId" value={job.id} />
             <input
               name="title"
               required
               placeholder='Task title, e.g. "July Reel #3"'
-              className="rounded-md border border-gray-300 px-3 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-800"
+              className={inputCls}
             />
             <textarea
               name="brief"
               rows={5}
               placeholder="Brief / guide for the editor: what to edit, style, length, captions…"
-              className="rounded-md border border-gray-300 px-3 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-800"
+              className={inputCls}
             />
             <input
               name="referenceLink"
               placeholder="Reference link (optional, https://…)"
-              className="rounded-md border border-gray-300 px-3 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-800"
+              className={inputCls}
             />
-            <label className="text-xs text-gray-500 dark:text-gray-400">
+            <label className="text-xs text-slate-500 dark:text-slate-400">
               Due date
-              <input
-                type="date"
-                name="dueAt"
-                className="ml-2 rounded-md border border-gray-300 px-3 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-800"
-              />
+              <input type="date" name="dueAt" className={`ml-2 ${inputCls}`} />
             </label>
-            <select
-              name="assigneeId"
-              defaultValue={job.defaultEditorId ?? ""}
-              className="rounded-md border border-gray-300 px-3 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-800"
-            >
+            <select name="assigneeId" defaultValue={job.defaultEditorId ?? ""} className={inputCls}>
               <option value="">Editor (assign later)</option>
               {editors.map((e) => (
                 <option key={e.id} value={e.id}>
@@ -179,25 +164,18 @@ export default async function JobPage(props: { params: Promise<{ id: string }> }
                 </option>
               ))}
             </select>
-            <p className="text-xs text-gray-400">
+            <p className="text-xs text-slate-400 dark:text-slate-500">
               Task is created as a draft — assign it from the task page to notify the editor.
             </p>
           </ActionForm>
-        </section>
+        </Section>
       )}
 
       {user.role === "ADMIN" && managers.length > 0 && (
-        <section className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-            Reassign job manager
-          </h2>
+        <Section title="Reassign job manager">
           <ActionForm action={adminReassignJob} submitLabel="Reassign" className="flex max-w-md flex-col gap-2">
             <input type="hidden" name="jobId" value={job.id} />
-            <select
-              name="managerId"
-              required
-              className="rounded-md border border-gray-300 px-3 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-800"
-            >
+            <select name="managerId" required className={inputCls}>
               <option value="">New manager…</option>
               {managers
                 .filter((m) => m.id !== job.managerId)
@@ -208,7 +186,7 @@ export default async function JobPage(props: { params: Promise<{ id: string }> }
                 ))}
             </select>
           </ActionForm>
-        </section>
+        </Section>
       )}
     </div>
   );
