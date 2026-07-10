@@ -7,7 +7,7 @@ import { ActionForm } from "@/components/action-form";
 import { uploadFileTo, validateFile } from "@/lib/upload-client";
 
 const inputCls =
-  "rounded-md border border-gray-300 px-3 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-800";
+  "rounded-xl border border-slate-200/80 bg-white/50 px-3.5 py-2 text-sm backdrop-blur-sm shadow-sm transition-all focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-slate-800/80 dark:bg-slate-900/50 dark:focus:border-brand-500 dark:focus:bg-slate-950";
 
 type Progress = { file: File; pct: number; error?: string };
 
@@ -80,8 +80,8 @@ export function Uploader({ taskId, initialFileCount }: { taskId: string; initial
           setIsDragging(false);
           handleFiles(e.dataTransfer.files);
         }}
-        className={`flex flex-col gap-1 rounded-md border-2 border-dashed p-3 ${
-          isDragging ? "border-blue-500 bg-blue-50 dark:bg-blue-950" : "border-gray-300 dark:border-gray-600"
+        className={`flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed p-6 text-center transition-all ${
+          isDragging ? "border-brand-500 bg-brand-500/5 dark:bg-brand-500/10" : "border-slate-200/80 bg-slate-50/20 hover:border-slate-350 dark:border-slate-800/80 dark:bg-slate-900/10 dark:hover:border-slate-700"
         }`}
       >
         <input
@@ -91,7 +91,7 @@ export function Uploader({ taskId, initialFileCount }: { taskId: string; initial
           disabled={busy}
           accept="video/*,image/*,application/pdf"
           onChange={(e) => handleFiles(e.target.files)}
-          className="text-sm file:mr-3 file:rounded-md file:border-0 file:bg-blue-600 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white hover:file:bg-blue-700"
+          className="text-xs file:mr-3 file:cursor-pointer file:rounded-xl file:border-0 file:bg-brand-600 file:px-3.5 file:py-2 file:text-xs file:font-semibold file:text-white hover:file:bg-brand-700 file:transition-colors file:shadow-sm"
         />
         <p className="text-xs text-gray-400">or drag files here</p>
       </div>

@@ -4,11 +4,11 @@ import { useState, useTransition } from "react";
 import type { ActionResult } from "@/lib/actions";
 
 const VARIANTS = {
-  primary: "bg-brand-600 text-white hover:bg-brand-700",
-  success: "bg-emerald-600 text-white hover:bg-emerald-700",
-  danger: "bg-red-600 text-white hover:bg-red-700",
+  primary: "bg-gradient-to-r from-brand-600 to-brand-500 hover:from-brand-700 hover:to-brand-600 text-white shadow-md shadow-brand-500/10 hover:shadow-brand-500/20 border border-brand-600/20",
+  success: "bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-700 hover:to-emerald-600 text-white shadow-md shadow-emerald-500/10 hover:shadow-emerald-500/20 border border-emerald-600/20",
+  danger: "bg-gradient-to-r from-red-600 to-red-500 hover:from-red-700 hover:to-red-600 text-white shadow-md shadow-red-500/10 hover:shadow-red-500/20 border border-red-600/20",
   neutral:
-    "border border-slate-300 text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800",
+    "border border-slate-200/80 bg-white/50 text-slate-700 shadow-sm hover:bg-slate-100 dark:border-slate-800/85 dark:bg-slate-900/40 dark:text-slate-200 dark:hover:bg-slate-800/60",
 } as const;
 
 export function ActionButton({
@@ -30,7 +30,7 @@ export function ActionButton({
       <button
         type="button"
         disabled={pending}
-        className={`cursor-pointer rounded-lg px-3 py-1.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${VARIANTS[variant]}`}
+        className={`cursor-pointer rounded-xl px-3.5 py-2 text-sm font-semibold transition-all duration-255 hover:scale-[1.02] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 ${VARIANTS[variant]}`}
         onClick={() => {
           if (confirm && !window.confirm(confirm)) return;
           setError(null);

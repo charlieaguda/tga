@@ -54,23 +54,25 @@ export function NotificationBell() {
         type="button"
         aria-label="Notifications"
         onClick={() => setOpen((v) => !v)}
-        className="relative rounded-md border border-gray-300 px-2.5 py-1 text-sm hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-800"
+        className="relative flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200/80 bg-white/50 text-slate-700 backdrop-blur-sm transition-all hover:bg-slate-100 hover:scale-105 active:scale-95 dark:border-slate-800/80 dark:bg-slate-900/50 dark:text-slate-300 dark:hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
       >
-        🔔
+        <svg className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+        </svg>
         {unread > 0 && (
-          <span className="absolute -right-1.5 -top-1.5 rounded-full bg-red-600 px-1.5 text-[10px] font-bold text-white">
+          <span className="absolute -right-1 -top-1.5 flex h-4.5 min-w-4.5 items-center justify-center rounded-full bg-brand-600 px-1 text-[9px] font-bold text-white ring-2 ring-white dark:ring-slate-950">
             {unread > 9 ? "9+" : unread}
           </span>
         )}
       </button>
       {open && (
-        <div className="absolute right-0 z-20 mt-2 w-80 rounded-xl border border-gray-200 bg-white p-2 shadow-lg dark:border-gray-700 dark:bg-gray-900">
-          <div className="flex items-center justify-between px-2 py-1">
-            <span className="text-xs font-semibold uppercase text-gray-500">Notifications</span>
+        <div className="absolute right-0 z-30 mt-2 w-80 origin-top-right rounded-xl border border-slate-200/80 bg-white/90 p-2 shadow-lg ring-1 ring-black/5 backdrop-blur-md transition-all animate-in fade-in slide-in-from-top-1 dark:border-slate-800/80 dark:bg-slate-900/90 dark:ring-white/5">
+          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/60 px-3 py-2">
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">Notifications</span>
             {unread > 0 && (
               <button
                 type="button"
-                className="text-xs text-blue-600 hover:underline"
+                className="text-xs font-medium text-brand-600 hover:text-brand-700 dark:text-brand-450 dark:hover:text-brand-350 transition-colors"
                 onClick={async () => {
                   await notificationsMarkAllRead();
                   load();
@@ -80,15 +82,15 @@ export function NotificationBell() {
               </button>
             )}
           </div>
-          <ul className="max-h-96 overflow-y-auto">
+          <ul className="max-h-90 overflow-y-auto p-1">
             {items.length === 0 && (
-              <li className="px-2 py-3 text-sm text-gray-500">Nothing yet.</li>
+              <li className="px-3 py-4 text-xs text-slate-400 dark:text-slate-500 text-center">Nothing yet.</li>
             )}
             {items.map((n) => {
               const body = (
-                <>
-                  <span className={n.readAt ? "text-gray-500" : "font-medium"}>{n.message}</span>
-                  <span className="block text-xs text-gray-400">
+                <div className="flex flex-col gap-0.5">
+                  <span className={n.readAt ? "text-slate-550 dark:text-slate-450 text-xs" : "font-medium text-slate-900 dark:text-slate-100 text-xs"}>{n.message}</span>
+                  <span className="block text-[10px] text-slate-400 dark:text-slate-500">
                     {new Date(n.createdAt).toLocaleString("en-AU", {
                       day: "numeric",
                       month: "short",
@@ -96,16 +98,16 @@ export function NotificationBell() {
                       minute: "2-digit",
                     })}
                   </span>
-                </>
+                </div>
               );
               return (
-                <li key={n.id} className="rounded-md px-2 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-800">
+                <li key={n.id} className="rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                   {n.taskId ? (
-                    <Link href={`/tasks/${n.taskId}`} onClick={() => setOpen(false)}>
+                    <Link href={`/tasks/${n.taskId}`} onClick={() => setOpen(false)} className="block px-3 py-2">
                       {body}
                     </Link>
                   ) : (
-                    body
+                    <div className="px-3 py-2">{body}</div>
                   )}
                 </li>
               );
@@ -115,4 +117,5 @@ export function NotificationBell() {
       )}
     </div>
   );
+
 }

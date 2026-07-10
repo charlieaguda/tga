@@ -59,7 +59,7 @@ export function ActionForm({
       <button
         type="submit"
         disabled={pending || disabled}
-        className="cursor-pointer self-start rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
+        className="cursor-pointer self-start rounded-xl bg-gradient-to-r from-brand-600 to-brand-500 hover:from-brand-700 hover:to-brand-600 text-white shadow-md shadow-brand-500/10 hover:shadow-brand-500/20 border border-brand-600/20 px-4 py-2 text-sm font-semibold transition-all duration-255 hover:scale-[1.02] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
       >
         {pending ? "Saving…" : submitLabel}
       </button>

@@ -8,7 +8,7 @@ import { JobStatusBadge } from "@/components/status-badge";
 import { PageHeader, Section, EmptyState } from "@/components/ui";
 
 const inputCls =
-  "rounded-lg border border-slate-300 px-3 py-1.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-slate-600 dark:bg-slate-800";
+  "rounded-xl border border-slate-200/80 bg-white/50 px-3.5 py-2 text-sm backdrop-blur-sm shadow-sm transition-all focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-slate-800/80 dark:bg-slate-900/50 dark:focus:border-brand-500 dark:focus:bg-slate-950";
 
 export default async function JobsPage() {
   const session = await auth();
