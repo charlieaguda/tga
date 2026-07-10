@@ -7,11 +7,14 @@ export default async function ClientHubPage() {
   const session = await auth();
   const user = session?.user;
   if (!user?.isActive) redirect("/login");
-  if (user.role === "EDITOR") redirect("/dashboard");
   if (user.role === "CLIENT") redirect(user.clientId ? `/client-hub/${user.clientId}` : "/dashboard");
 
   const clients = await db.client.findMany({
-    where: { isActive: true },
+    where: {
+      isActive: true,
+      // Editors only see clients they actually have an assigned task with — read-only reference access.
+      ...(user.role === "EDITOR" ? { jobs: { some: { tasks: { some: { assigneeId: user.id } } } } } : {}),
+    },
     orderBy: { name: "asc" },
   });
 

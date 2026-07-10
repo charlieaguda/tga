@@ -49,11 +49,9 @@ export default async function RootLayout({
                   Jobs
                 </Link>
               )}
-              {user.role !== "EDITOR" && (
-                <Link href="/client-hub" className="text-sm hover:underline">
-                  Client Hub
-                </Link>
-              )}
+              <Link href="/client-hub" className="text-sm hover:underline">
+                Client Hub
+              </Link>
               {(user.role === "ADMIN" || user.role === "MANAGER") && (
                 <Link href="/clients" className="text-sm hover:underline">
                   Clients

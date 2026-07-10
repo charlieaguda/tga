@@ -32,11 +32,15 @@ export default async function ClientHubDetailPage(props: {
   const session = await auth();
   const user = session?.user;
   if (!user?.isActive) redirect("/login");
-  if (user.role === "EDITOR") redirect("/dashboard");
 
   const { id } = await props.params;
   if (user.role === "CLIENT" && user.clientId !== id) {
     redirect(user.clientId ? `/client-hub/${user.clientId}` : "/dashboard");
+  }
+  if (user.role === "EDITOR") {
+    // Read-only reference access, scoped to clients they actually have an assigned task with.
+    const hasTask = await db.task.count({ where: { assigneeId: user.id, job: { clientId: id } } });
+    if (hasTask === 0) redirect("/dashboard");
   }
 
   const client = await db.client.findUnique({ where: { id } });
