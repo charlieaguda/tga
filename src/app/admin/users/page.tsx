@@ -7,6 +7,9 @@ import { ActionButton } from "@/components/action-button";
 import { ActionForm } from "@/components/action-form";
 
 const ROLES = Object.values(Role);
+// CLIENT users need a clientId, which this quick-toggle has no way to supply —
+// they're only created via the "Add user" form below, which has the picker.
+const TOGGLE_ROLES = ROLES.filter((r) => r !== "CLIENT");
 
 export default async function UsersPage() {
   const session = await auth();
@@ -14,7 +17,10 @@ export default async function UsersPage() {
   if (!me?.isActive) redirect("/login");
   if (me.role !== "ADMIN") redirect("/dashboard");
 
-  const users = await db.user.findMany({ orderBy: [{ isActive: "desc" }, { name: "asc" }] });
+  const [users, clients] = await Promise.all([
+    db.user.findMany({ orderBy: [{ isActive: "desc" }, { name: "asc" }] }),
+    db.client.findMany({ where: { isActive: true }, orderBy: { name: "asc" } }),
+  ]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -45,7 +51,7 @@ export default async function UsersPage() {
                       u.role.toLowerCase()
                     ) : (
                       <span className="flex flex-wrap gap-1">
-                        {ROLES.map((r) => (
+                        {TOGGLE_ROLES.map((r) => (
                           <ActionButton
                             key={r}
                             action={adminSetRole.bind(null, u.id, r)}
@@ -150,6 +156,18 @@ export default async function UsersPage() {
             {ROLES.map((r) => (
               <option key={r} value={r}>
                 {r.toLowerCase()}
+              </option>
+            ))}
+          </select>
+          <select
+            name="clientId"
+            defaultValue=""
+            className="rounded-md border border-gray-300 px-3 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-800"
+          >
+            <option value="">Client (only used when role = client)</option>
+            {clients.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
               </option>
             ))}
           </select>

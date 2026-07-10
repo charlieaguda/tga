@@ -4,49 +4,6 @@ import { authorize } from "@/lib/permissions";
 import { logActivity } from "@/lib/activity";
 import { ValidationError } from "@/lib/errors";
 
-export async function createClient(input: { name: string; notes?: string }) {
-  const actor = await authorize("client.write");
-  const name = input.name.trim();
-  if (!name) throw new ValidationError("Client name is required");
-
-  return db.$transaction(async (tx) => {
-    const client = await tx.client.create({ data: { name, notes: input.notes?.trim() } });
-    await logActivity(tx, {
-      actorId: actor.id,
-      action: "client.created",
-      entityType: "client",
-      entityId: client.id,
-    });
-    return client;
-  });
-}
-
-export async function setClientActive(clientId: string, isActive: boolean) {
-  const client = await db.client.findUnique({ where: { id: clientId } });
-  if (!client) throw new ValidationError("Client not found");
-  const actor = await authorize("client.deactivate");
-
-  if (!isActive) {
-    const activeJobs = await db.job.count({
-      where: { clientId, status: { not: "ARCHIVED" } },
-    });
-    if (activeJobs > 0)
-      throw new ValidationError(
-        `Client has ${activeJobs} job(s) that aren't archived — archive them first`,
-      );
-  }
-
-  await db.$transaction(async (tx) => {
-    await tx.client.update({ where: { id: clientId }, data: { isActive } });
-    await logActivity(tx, {
-      actorId: actor.id,
-      action: isActive ? "client.reactivated" : "client.deactivated",
-      entityType: "client",
-      entityId: clientId,
-    });
-  });
-}
-
 export async function createJob(input: {
   clientId: string;
   title: string;

@@ -6,6 +6,7 @@ import { z } from "zod";
 import { JobStatus, ReviewDecision, Role } from "@prisma/client";
 import * as tasks from "@/lib/services/tasks";
 import * as jobs from "@/lib/services/jobs";
+import * as clients from "@/lib/services/clients";
 import * as admin from "@/lib/services/admin";
 import * as credentials from "@/lib/services/auth-credentials";
 import { createSessionForUser, destroySession } from "@/lib/auth-session";
@@ -98,11 +99,13 @@ export async function adminCreateUser(_prev: ActionResult, formData: FormData) {
       name: shortText,
       role: z.nativeEnum(Role),
       password: z.string().min(8, "Password must be at least 8 characters").max(200),
+      clientId: z.string().trim().optional(),
     })
     .safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
+  const { clientId, ...rest } = parsed.data;
   return guard(async () => {
-    await admin.createUser(parsed.data);
+    await admin.createUser({ ...rest, clientId: clientId || undefined });
   });
 }
 
@@ -141,8 +144,22 @@ export async function clientCreate(_prev: ActionResult, formData: FormData) {
     .safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
   return guard(async () => {
-    await jobs.createClient(parsed.data);
+    await clients.createClient(parsed.data);
   });
+}
+
+export async function clientSetNotionUrl(_prev: ActionResult, formData: FormData) {
+  const parsed = z
+    .object({ clientId: id, notionUrl: optionalUrl.optional() })
+    .safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
+  return guard(() =>
+    clients.setClientNotionUrl(parsed.data.clientId, parsed.data.notionUrl || null),
+  );
+}
+
+export async function clientOffboard(clientId: string) {
+  return guard(() => clients.offboardClient(id.parse(clientId)));
 }
 
 export async function jobCreate(_prev: ActionResult, formData: FormData) {
@@ -166,7 +183,7 @@ export async function jobSetStatus(jobId: string, status: JobStatus) {
 }
 
 export async function clientSetActive(clientId: string, isActive: boolean) {
-  return guard(() => jobs.setClientActive(id.parse(clientId), isActive));
+  return guard(() => clients.setClientActive(id.parse(clientId), isActive));
 }
 
 export async function jobSetDefaultEditor(_prev: ActionResult, formData: FormData) {

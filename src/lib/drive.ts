@@ -162,6 +162,24 @@ export function sharedDriveRootId(): string {
   return SHARED_DRIVE_ID();
 }
 
+/** Re-parent a folder (used by client offboarding to move it under "Archive"). */
+export async function moveFolder(
+  folderId: string,
+  fromParentId: string,
+  toParentId: string,
+): Promise<void> {
+  const { drive } = getDrive();
+  await withBackoff(() =>
+    drive.files.update({
+      fileId: folderId,
+      addParents: toParentId,
+      removeParents: fromParentId,
+      supportsAllDrives: true,
+      fields: "id,parents",
+    }),
+  );
+}
+
 // ---------- files ----------
 
 export type DriveFileInfo = {

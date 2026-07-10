@@ -1,0 +1,222 @@
+import type { Client, FileCategory, Prisma } from "@prisma/client";
+import { db } from "@/lib/db";
+import { authorize } from "@/lib/permissions";
+import { logActivity } from "@/lib/activity";
+import { ConflictError, ForbiddenError, ValidationError } from "@/lib/errors";
+import {
+  createResumableSession,
+  ensureFolder,
+  findFileByAppProperty,
+  isDriveConfigured,
+  sharedDriveRootId,
+} from "@/lib/drive";
+import { sanitizeFileName, slugify } from "@/lib/slug";
+import { assertValidUploadDeclaration, verifyDriveUpload } from "@/lib/upload-policy";
+import { CATEGORY_LABELS } from "@/lib/file-categories";
+
+/**
+ * Idempotent lookup-or-create of the Drive folder for a (client, category)
+ * pair, caching the ID in ClientCategoryFolder — mirrors how Client/Job/
+ * Task/Submission each cache their own folder ID on their own row.
+ */
+async function ensureClientCategoryFolder(client: Client, category: FileCategory): Promise<string> {
+  const existing = await db.clientCategoryFolder.findUnique({
+    where: { clientId_category: { clientId: client.id, category } },
+  });
+  if (existing) return existing.driveFolderId;
+
+  const clientsRoot = await ensureFolder(sharedDriveRootId(), "Clients");
+  let clientFolder = client.driveFolderId;
+  if (!clientFolder) {
+    clientFolder = await ensureFolder(clientsRoot, slugify(client.name));
+    await db.client.update({ where: { id: client.id }, data: { driveFolderId: clientFolder } });
+  }
+  const categoryFolder = await ensureFolder(clientFolder, CATEGORY_LABELS[category]);
+
+  try {
+    await db.clientCategoryFolder.create({
+      data: { clientId: client.id, category, driveFolderId: categoryFolder },
+    });
+  } catch (err) {
+    // Race: another request created the same (client, category) row first —
+    // re-fetch rather than error, same idiom as other @@unique races.
+    if ((err as { code?: string }).code === "P2002") {
+      const row = await db.clientCategoryFolder.findUniqueOrThrow({
+        where: { clientId_category: { clientId: client.id, category } },
+      });
+      return row.driveFolderId;
+    }
+    throw err;
+  }
+  return categoryFolder;
+}
+
+async function getUploadableClient(clientId: string, category: FileCategory) {
+  const client = await db.client.findUnique({ where: { id: clientId } });
+  if (!client) throw new ValidationError("Client not found");
+  const actor = await authorize("client.file.upload", { client, category });
+  if (!client.isActive || client.offboardedAt)
+    throw new ConflictError("This client is offboarded — uploads are disabled");
+  return { client, actor };
+}
+
+export async function createClientUploadSession(
+  clientId: string,
+  category: FileCategory,
+  input: { fileName: string; sizeBytes: number; mimeType: string },
+) {
+  if (!isDriveConfigured())
+    throw new ValidationError("Google Drive is not configured yet — ask an admin");
+  assertValidUploadDeclaration(input);
+
+  const { client, actor } = await getUploadableClient(clientId, category);
+  const folderId = await ensureClientCategoryFolder(client, category);
+
+  const original = sanitizeFileName(input.fileName);
+  const storedName = `${slugify(client.name, 30)}-${slugify(CATEGORY_LABELS[category], 40)}-${original}`;
+
+  const session = await db.uploadSession.create({
+    data: {
+      clientId: client.id,
+      category,
+      editorId: actor.id,
+      fileName: original,
+      declaredSize: BigInt(input.sizeBytes),
+      declaredMime: input.mimeType,
+    },
+  });
+
+  // The Drive session URI is returned to the uploader only — never logged/persisted.
+  const sessionUri = await createResumableSession({
+    folderId,
+    fileName: storedName,
+    mimeType: input.mimeType,
+    sizeBytes: input.sizeBytes,
+    appProperties: { uploadSessionId: session.id, clientId: client.id },
+  });
+
+  return { uploadId: session.id, sessionUri, storedName };
+}
+
+const sessionInclude = { client: true } satisfies Prisma.UploadSessionInclude;
+
+type SessionWithMaybeClient = Prisma.UploadSessionGetPayload<{ include: typeof sessionInclude }>;
+
+type SessionWithClient = SessionWithMaybeClient & {
+  client: NonNullable<SessionWithMaybeClient["client"]>;
+  category: NonNullable<SessionWithMaybeClient["category"]>;
+};
+
+function hasClientCategory(session: SessionWithMaybeClient): session is SessionWithClient {
+  return session.client !== null && session.category !== null;
+}
+
+export async function completeClientUpload(uploadId: string, driveFileId: string) {
+  const session = await db.uploadSession.findUnique({
+    where: { id: uploadId },
+    include: sessionInclude,
+  });
+  if (!session) throw new ValidationError("Upload session not found");
+  if (!hasClientCategory(session))
+    throw new ValidationError("This upload session is not a client-hub upload");
+  const actor = await authorize("client.file.upload", {
+    client: session.client,
+    category: session.category,
+  });
+  if (session.editorId !== actor.id && actor.role !== "ADMIN")
+    throw new ForbiddenError("This upload belongs to another user");
+  if (session.status !== "PENDING") throw new ConflictError("Upload session is no longer active");
+
+  const file = await verifyAndRecordClientUpload(session, driveFileId, actor);
+  return { fileId: file.id };
+}
+
+async function verifyAndRecordClientUpload(
+  session: SessionWithClient,
+  driveFileId: string,
+  actor: { id: string; role: string },
+) {
+  const folder = await db.clientCategoryFolder.findUnique({
+    where: { clientId_category: { clientId: session.client.id, category: session.category } },
+  });
+
+  const info = await verifyDriveUpload({
+    driveFileId,
+    uploadSessionId: session.id,
+    expectedFolderId: folder?.driveFolderId ?? null,
+    declaredSize: session.declaredSize,
+  });
+
+  // Status-guarded transaction: the client may have been offboarded while
+  // the browser was still uploading.
+  const file = await db.$transaction(async (tx) => {
+    const claimed = await tx.uploadSession.updateMany({
+      where: { id: session.id, status: "PENDING" },
+      data: { status: "COMPLETED", driveFileId },
+    });
+    if (claimed.count === 0) throw new ConflictError("Upload session is no longer active");
+
+    const current = await tx.client.findUniqueOrThrow({
+      where: { id: session.client.id },
+      select: { isActive: true, offboardedAt: true },
+    });
+    if (!current.isActive || current.offboardedAt !== null)
+      throw new ConflictError("This client was offboarded while the file was uploading");
+
+    const created = await tx.file.create({
+      data: {
+        clientId: session.client.id,
+        category: session.category,
+        driveFileId,
+        fileName: session.fileName,
+        storedName: info.name,
+        mimeType: info.mimeType,
+        sizeBytes: BigInt(info.size),
+        uploadedById: session.editorId,
+      },
+    });
+    await logActivity(tx, {
+      actorId: actor.id,
+      action: "file.uploaded",
+      entityType: "file",
+      entityId: created.id,
+      clientId: session.client.id,
+      meta: { category: session.category, name: info.name },
+    });
+    return created;
+  });
+
+  return file;
+}
+
+/** Nightly reconciliation for client-hub uploads (cron-only). */
+export async function reconcileClientUploads(): Promise<{ relinked: number }> {
+  if (!isDriveConfigured()) return { relinked: 0 };
+
+  const pending = await db.uploadSession.findMany({
+    where: {
+      status: "PENDING",
+      createdAt: { lt: new Date(Date.now() - 3_600_000) },
+      clientId: { not: null },
+    },
+    include: sessionInclude,
+    take: 100,
+  });
+
+  let relinked = 0;
+  for (const session of pending) {
+    if (!hasClientCategory(session)) continue;
+    try {
+      const driveFileId = await findFileByAppProperty("uploadSessionId", session.id);
+      if (!driveFileId) continue;
+      await verifyAndRecordClientUpload(session, driveFileId, {
+        id: session.editorId,
+        role: "EDITOR",
+      });
+      relinked++;
+    } catch {
+      // Guarded failure (client offboarded, etc.) — leave for expiry.
+    }
+  }
+  return { relinked };
+}

@@ -31,7 +31,7 @@ npm install
 npm run dev:db      # terminal 1 — embedded Postgres (no Docker needed), keep running
 npm run db:migrate  # terminal 2 — apply migrations
 npm run db:seed     # demo data + prints dev session tokens (no Google needed locally)
-npm run dev         # http://localhost:3000
+npm run dev         # http://localhost:3030
 ```
 
 Sign-in locally: `admin` / `ceo` / `manager1` / `manager2` / `editor1` / `editor2`, all with password `password123` (or paste a seeded token as the `authjs.session-token` cookie — the seed prints one per user).
@@ -40,8 +40,8 @@ Checks:
 
 ```bash
 npx tsx scripts/verify-transitions.ts   # state machine + CAS acceptance checks
-npx tsx scripts/e2e-login.ts http://localhost:3000 admin password123  # browser login E2E
-npx tsx scripts/e2e.ts http://localhost:3000 <managerToken> <editorToken>  # browser workflow E2E
+npx tsx scripts/e2e-login.ts http://localhost:3030 admin password123  # browser login E2E
+npx tsx scripts/e2e.ts http://localhost:3030 <managerToken> <editorToken>  # browser workflow E2E
 npm run lint && npx tsc --noEmit
 ```
 

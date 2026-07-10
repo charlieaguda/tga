@@ -11,6 +11,7 @@ export async function createUser(input: {
   role: Role;
   password: string;
   email?: string;
+  clientId?: string;
 }) {
   const actor = await authorize("user.manage");
   const username = input.username.trim().toLowerCase();
@@ -18,6 +19,17 @@ export async function createUser(input: {
     throw new ValidationError(
       "Username must be 3-32 characters: letters, numbers, dots, underscores, hyphens",
     );
+
+  let clientId: string | null = null;
+  if (input.role === "CLIENT") {
+    if (!input.clientId) throw new ValidationError("A CLIENT user must be linked to a client");
+    const client = await db.client.findUnique({ where: { id: input.clientId } });
+    if (!client) throw new ValidationError("Client not found");
+    clientId = client.id;
+  } else if (input.clientId) {
+    throw new ValidationError("Only CLIENT-role users can be linked to a client");
+  }
+
   const passwordHash = await hashPassword(input.password);
 
   return db.$transaction(async (tx) => {
@@ -27,6 +39,7 @@ export async function createUser(input: {
         email: input.email?.trim().toLowerCase() || null,
         name: input.name.trim(),
         role: input.role,
+        clientId,
         passwordHash,
       },
     });
@@ -44,11 +57,16 @@ export async function createUser(input: {
 export async function setUserRole(userId: string, role: Role) {
   const actor = await authorize("user.manage");
   if (userId === actor.id) throw new ValidationError("You cannot change your own role");
+  // CLIENT users need a clientId, which this quick-toggle has no way to supply —
+  // create them via createUser's form instead, which does.
+  if (role === "CLIENT")
+    throw new ValidationError("Create a new CLIENT user instead of changing an existing user's role");
 
   await db.$transaction(async (tx) => {
     const before = await tx.user.findUnique({ where: { id: userId } });
     if (!before) throw new ValidationError("User not found");
-    await tx.user.update({ where: { id: userId }, data: { role } });
+    // Clear a stale clientId if a CLIENT user is ever moved to a non-CLIENT role.
+    await tx.user.update({ where: { id: userId }, data: { role, clientId: null } });
     // Role changes take effect immediately: kill existing sessions.
     await tx.session.deleteMany({ where: { userId } });
     await logActivity(tx, {

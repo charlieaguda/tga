@@ -2,31 +2,38 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { taskSubmit } from "@/lib/actions";
-import { ActionForm } from "@/components/action-form";
+import type { FileCategory } from "@prisma/client";
 import { uploadFileTo, validateFile } from "@/lib/upload-client";
-
-const inputCls =
-  "rounded-md border border-gray-300 px-3 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-800";
 
 type Progress = { file: File; pct: number; error?: string };
 
-export function Uploader({ taskId, initialFileCount }: { taskId: string; initialFileCount: number }) {
+/**
+ * Shared drag/drop + chunked-upload widget, upload-only (no submit step) —
+ * used for client-hub category files and task reference attachments, which
+ * (unlike editor deliverables) aren't gated behind a "submit for review" step.
+ */
+function FileDropUploader({
+  label,
+  initUrl,
+  extraInitBody,
+}: {
+  label: string;
+  initUrl: string;
+  extraInitBody?: Record<string, unknown>;
+}) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [items, setItems] = useState<Progress[]>([]);
   const [busy, setBusy] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
 
-  const uploadedCount = items.filter((it) => it.pct === 100 && !it.error).length;
-  const fileCount = initialFileCount + uploadedCount;
-
   async function runUpload(index: number, file: File) {
     setItems((prev) => prev.map((p, j) => (j === index ? { ...p, error: undefined, pct: 0 } : p)));
     const error = await uploadFileTo(
-      `/api/tasks/${taskId}/uploads`,
+      initUrl,
       file,
       (pct) => setItems((prev) => prev.map((p, j) => (j === index ? { ...p, pct } : p))),
+      extraInitBody,
     );
     setItems((prev) =>
       prev.map((p, j) => (j === index ? { ...p, error: error ?? undefined, pct: error ? p.pct : 100 } : p)),
@@ -63,9 +70,7 @@ export function Uploader({ taskId, initialFileCount }: { taskId: string; initial
 
   return (
     <div className="flex flex-col gap-2">
-      <label className="text-sm font-medium">
-        Upload deliverables (video / image / PDF, saved to Google Drive)
-      </label>
+      <label className="text-sm font-medium">{label}</label>
       <div
         onDragOver={(e) => {
           e.preventDefault();
@@ -119,21 +124,25 @@ export function Uploader({ taskId, initialFileCount }: { taskId: string; initial
           </li>
         ))}
       </ul>
-      <ActionForm
-        action={taskSubmit}
-        submitLabel="Submit for review"
-        disabled={fileCount === 0}
-        disabledHint={fileCount === 0 ? "Upload at least one file before submitting." : undefined}
-        className="flex max-w-md flex-col gap-2"
-      >
-        <input type="hidden" name="taskId" value={taskId} />
-        <textarea
-          name="note"
-          rows={2}
-          placeholder="What changed this round? (optional)"
-          className={inputCls}
-        />
-      </ActionForm>
     </div>
+  );
+}
+
+export function ClientFileUploader({ clientId, category }: { clientId: string; category: FileCategory }) {
+  return (
+    <FileDropUploader
+      label="Upload files (video / image / PDF, saved to Google Drive)"
+      initUrl={`/api/clients/${clientId}/uploads`}
+      extraInitBody={{ category }}
+    />
+  );
+}
+
+export function TaskAttachmentUploader({ taskId }: { taskId: string }) {
+  return (
+    <FileDropUploader
+      label="Upload reference/example images (saved to Google Drive)"
+      initUrl={`/api/tasks/${taskId}/attachments`}
+    />
   );
 }

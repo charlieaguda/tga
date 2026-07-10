@@ -9,6 +9,7 @@ export type ActivityInput = {
   entityId: string;
   jobId?: string;
   taskId?: string;
+  clientId?: string;
   meta?: Prisma.InputJsonValue; // never secrets/PII
 };
 
@@ -22,6 +23,7 @@ export async function logActivity(tx: DbClient, input: ActivityInput) {
       entityId: input.entityId,
       jobId: input.jobId,
       taskId: input.taskId,
+      clientId: input.clientId,
       meta: input.meta,
     },
   });

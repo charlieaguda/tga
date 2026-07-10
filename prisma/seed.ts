@@ -12,11 +12,11 @@ const db = new PrismaClient();
 const DEV_PASSWORD = "password123";
 const passwordHash = bcrypt.hashSync(DEV_PASSWORD, 12);
 
-async function user(username: string, name: string, role: Role) {
+async function user(username: string, name: string, role: Role, clientId?: string) {
   return db.user.upsert({
     where: { username },
-    update: { role, isActive: true, passwordHash },
-    create: { username, name, role, passwordHash },
+    update: { role, isActive: true, passwordHash, clientId },
+    create: { username, name, role, passwordHash, clientId },
   });
 }
 
@@ -31,6 +31,7 @@ async function main() {
   const mgr2 = await user("manager2", "Marley Manager", "MANAGER");
   const ed1 = await user("editor1", "Eddie Editor", "EDITOR");
   const ed2 = await user("editor2", "Evan Editor", "EDITOR");
+  const viewer = await user("viewer1", "Val Viewer", "VIEWER");
 
   const acme = await db.client.upsert({
     where: { name: "Acme Fitness" },
@@ -42,6 +43,7 @@ async function main() {
     update: {},
     create: { name: "Bloom Cafe", notes: "TikTok + IG. Soft aesthetic." },
   });
+  const client1 = await user("client1", "Cody Client (Acme Fitness)", "CLIENT", acme.id);
 
   const jobA = await db.job.create({
     data: { clientId: acme.id, managerId: mgr1.id, title: "Instagram management 2026" },
@@ -110,7 +112,7 @@ async function main() {
 
   // Dev sessions (skippable with SEED_SESSIONS=0)
   if (process.env.SEED_SESSIONS !== "0") {
-    const users = [admin, ceo, mgr1, mgr2, ed1, ed2];
+    const users = [admin, ceo, mgr1, mgr2, ed1, ed2, viewer, client1];
     console.log("\nDev session tokens (valid 7 days):");
     for (const u of users) {
       const token = randomBytes(32).toString("hex");

@@ -14,6 +14,17 @@ enum Role {
   CEO
   MANAGER
   EDITOR
+  VIEWER
+  CLIENT
+}
+
+enum FileCategory {
+  BRAND_GUIDELINES
+  ASSETS
+  CREATIVES
+  UNUSED_CREATIVES
+  LOGO
+  BRAND_COLORS
 }
 
 enum JobStatus {
@@ -66,6 +77,8 @@ model User {
   isActive     Boolean  @default(true)
   passwordHash String? // bcrypt; null = cannot sign in yet (admin must set a password)
   image        String?
+  clientId     String? // set only for role = CLIENT: tenant-isolation scope
+  client       Client?  @relation(fields: [clientId], references: [id])
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -83,6 +96,8 @@ model User {
 
   accounts Account[]
   sessions Session[]
+
+  @@index([clientId])
 }
 
 // Auth.js (Prisma adapter) tables
@@ -117,14 +132,34 @@ model Session {
 // ---------- Clients & Jobs ----------
 
 model Client {
-  id            String   @id @default(cuid())
-  name          String   @unique
+  id            String     @id @default(cuid())
+  name          String     @unique
   notes         String?
-  isActive      Boolean  @default(true)
+  isActive      Boolean    @default(true)
   driveFolderId String?
-  createdAt     DateTime @default(now())
+  notionUrl     String? // Notion page embedded full-screen on the client hub page
+  offboardedAt  DateTime? // null = normal; set when the client is archived/offboarded
+  createdAt     DateTime   @default(now())
 
-  jobs Job[]
+  jobs            Job[]
+  users           User[]
+  files           File[]
+  uploadSessions  UploadSession[]
+  categoryFolders ClientCategoryFolder[]
+}
+
+// Drive folder ID cache for a (client, category) pair — mirrors the existing
+// convention of caching a folder ID on the owning row (Client/Job/Task/Submission
+// each do), but a (client, category) pair has no single owning row of its own.
+model ClientCategoryFolder {
+  id            String       @id @default(cuid())
+  clientId      String
+  client        Client       @relation(fields: [clientId], references: [id])
+  category      FileCategory
+  driveFolderId String
+  createdAt     DateTime     @default(now())
+
+  @@unique([clientId, category])
 }
 
 model Job {
@@ -173,10 +208,11 @@ model Task {
   createdAt             DateTime   @default(now())
   updatedAt             DateTime   @updatedAt
 
-  submissions   Submission[]
-  comments      Comment[]
-  attachments   File[]
-  notifications Notification[]
+  submissions    Submission[]
+  comments       Comment[]
+  attachments    File[]
+  notifications  Notification[]
+  uploadSessions UploadSession[]
 
   @@index([jobId, status])
   @@index([assigneeId, status])
@@ -218,40 +254,54 @@ model ReviewAction {
 // ---------- Files (Google Drive-backed) ----------
 
 model File {
-  id           String      @id @default(cuid())
+  id           String        @id @default(cuid())
   submissionId String?
-  submission   Submission? @relation(fields: [submissionId], references: [id])
+  submission   Submission?   @relation(fields: [submissionId], references: [id])
   taskId       String?
-  task         Task?       @relation(fields: [taskId], references: [id])
-  driveFileId  String      @unique
+  task         Task?         @relation(fields: [taskId], references: [id])
+  clientId     String?
+  client       Client?       @relation(fields: [clientId], references: [id])
+  category     FileCategory? // set only when clientId is set (client-hub uploads)
+  driveFileId  String        @unique
   fileName     String
   storedName   String
   mimeType     String
   sizeBytes    BigInt
-  driveStatus  String      @default("ok")
+  driveStatus  String        @default("ok")
   uploadedById String
-  uploadedBy   User        @relation(fields: [uploadedById], references: [id])
-  createdAt    DateTime    @default(now())
+  uploadedBy   User          @relation(fields: [uploadedById], references: [id])
+  createdAt    DateTime      @default(now())
 
   @@index([submissionId])
   @@index([taskId])
+  @@index([clientId, category])
 }
 
+// Exactly one of submissionId / taskId / (clientId+category) is set per row,
+// depending on which upload path created it (deliverable / task attachment /
+// client-hub category). Enforced at the service layer, not the DB.
 model UploadSession {
-  id           String       @id @default(cuid())
-  submissionId String
-  submission   Submission   @relation(fields: [submissionId], references: [id])
+  id           String        @id @default(cuid())
+  submissionId String?
+  submission   Submission?   @relation(fields: [submissionId], references: [id])
+  taskId       String?
+  task         Task?         @relation(fields: [taskId], references: [id])
+  clientId     String?
+  client       Client?       @relation(fields: [clientId], references: [id])
+  category     FileCategory?
   editorId     String
-  editor       User         @relation(fields: [editorId], references: [id])
+  editor       User          @relation(fields: [editorId], references: [id])
   fileName     String
   declaredSize BigInt
   declaredMime String
-  status       UploadStatus @default(PENDING)
+  status       UploadStatus  @default(PENDING)
   driveFileId  String?
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
 
   @@index([submissionId, status])
+  @@index([taskId, status])
+  @@index([clientId, status])
   @@index([status, createdAt])
 }
 
@@ -298,10 +348,12 @@ model ActivityLog {
   entityId   String
   jobId      String?
   taskId     String?
+  clientId   String? // client-hub uploads have no Job to join through
   meta       Json?
   createdAt  DateTime @default(now())
 
   @@index([entityType, entityId])
   @@index([jobId, createdAt])
   @@index([taskId, createdAt])
+  @@index([clientId, createdAt])
 }

@@ -17,6 +17,7 @@ import { ActionButton } from "@/components/action-button";
 import { ActionForm } from "@/components/action-form";
 import { TaskStatusBadge } from "@/components/status-badge";
 import { Uploader } from "@/components/uploader";
+import { TaskAttachmentUploader } from "@/components/file-drop-uploader";
 import { driveViewLink, isDriveConfigured } from "@/lib/drive";
 import { fmtDate, fmtDateTime, isOverdue } from "@/lib/format";
 
@@ -38,6 +39,7 @@ export default async function TaskPage(props: { params: Promise<{ id: string }> 
   const session = await auth();
   const user = session?.user;
   if (!user?.isActive) redirect("/login");
+  if (user.role === "CLIENT") redirect("/client-hub");
 
   const { id } = await props.params;
   const task = await db.task.findUnique({
@@ -67,6 +69,10 @@ export default async function TaskPage(props: { params: Promise<{ id: string }> 
     (user.role === "ADMIN" || user.role === "CEO" ||
       (user.role === "MANAGER" && task.job.managerId === user.id)) &&
     !["APPROVED", "POSTED", "CANCELLED"].includes(task.status);
+  const canAttach =
+    (user.role === "ADMIN" || user.role === "CEO" ||
+      (user.role === "MANAGER" && task.job.managerId === user.id)) &&
+    !["POSTED", "CANCELLED"].includes(task.status);
 
   const editors = canAssign
     ? await db.user.findMany({ where: { isActive: true, role: "EDITOR" }, orderBy: { name: "asc" } })
@@ -161,6 +167,11 @@ export default async function TaskPage(props: { params: Promise<{ id: string }> 
               <li key={f.id}>{f.fileName}</li>
             ))}
           </ul>
+        )}
+        {canAttach && isDriveConfigured() && (
+          <div className="mt-3">
+            <TaskAttachmentUploader taskId={task.id} />
+          </div>
         )}
       </Card>
 

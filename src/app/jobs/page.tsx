@@ -10,6 +10,7 @@ export default async function JobsPage() {
   const session = await auth();
   const user = session?.user;
   if (!user?.isActive) redirect("/login");
+  if (user.role === "CLIENT") redirect("/client-hub");
 
   // Editors see only jobs where they have assigned tasks; others see all.
   const jobs = await db.job.findMany({

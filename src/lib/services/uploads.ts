@@ -12,29 +12,23 @@ import {
   sharedDriveRootId,
 } from "@/lib/drive";
 import { sanitizeFileName, slugify } from "@/lib/slug";
-
-const MAX_UPLOAD_BYTES = 5 * 1024 ** 3; // 5 GiB per file
-
-function mimeAllowed(mime: string): boolean {
-  return mime.startsWith("video/") || mime.startsWith("image/") || mime === "application/pdf";
-}
+import { assertValidUploadDeclaration, verifyDriveUpload } from "@/lib/upload-policy";
 
 const uploadInclude = {
   job: { include: { client: true } },
   assignee: true,
 } satisfies Prisma.TaskInclude;
 
-type TaskForUpload = Prisma.TaskGetPayload<{ include: typeof uploadInclude }>;
+export type TaskForUpload = Prisma.TaskGetPayload<{ include: typeof uploadInclude }>;
 
 /**
- * Ensure /Clients/{client}/{job}/{taskId}-{slug}/v{round}/ exists, persisting
- * each level's Drive folder ID (DB is the source of truth; names are cosmetic).
+ * Ensure /Clients/{client}/{job}/{taskId}-{slug}/ exists, persisting each
+ * level's Drive folder ID (DB is the source of truth; names are cosmetic).
+ * Shared by the deliverable path (which adds a v{round} subfolder on top)
+ * and the task-attachment path (which uploads directly here).
  */
-async function ensureSubmissionFolder(
-  task: TaskForUpload,
-  submission: { id: string; round: number; driveFolderId: string | null },
-): Promise<string> {
-  if (submission.driveFolderId) return submission.driveFolderId;
+async function ensureTaskFolder(task: TaskForUpload): Promise<string> {
+  if (task.driveFolderId) return task.driveFolderId;
 
   const clientsRoot = await ensureFolder(sharedDriveRootId(), "Clients");
 
@@ -53,12 +47,18 @@ async function ensureSubmissionFolder(
     await db.job.update({ where: { id: task.job.id }, data: { driveFolderId: jobFolder } });
   }
 
-  let taskFolder = task.driveFolderId;
-  if (!taskFolder) {
-    taskFolder = await ensureFolder(jobFolder, `${task.id}-${slugify(task.title)}`);
-    await db.task.update({ where: { id: task.id }, data: { driveFolderId: taskFolder } });
-  }
+  const taskFolder = await ensureFolder(jobFolder, `${task.id}-${slugify(task.title)}`);
+  await db.task.update({ where: { id: task.id }, data: { driveFolderId: taskFolder } });
+  return taskFolder;
+}
 
+async function ensureSubmissionFolder(
+  task: TaskForUpload,
+  submission: { id: string; round: number; driveFolderId: string | null },
+): Promise<string> {
+  if (submission.driveFolderId) return submission.driveFolderId;
+
+  const taskFolder = await ensureTaskFolder(task);
   const versionFolder = await ensureFolder(taskFolder, `v${submission.round}`);
   await db.submission.update({
     where: { id: submission.id },
@@ -87,12 +87,7 @@ export async function createUploadSession(
 ) {
   if (!isDriveConfigured())
     throw new ValidationError("Google Drive is not configured yet — ask an admin");
-  if (!Number.isFinite(input.sizeBytes) || input.sizeBytes <= 0)
-    throw new ValidationError("Invalid file size");
-  if (input.sizeBytes > MAX_UPLOAD_BYTES)
-    throw new ValidationError("File exceeds the 5 GB upload limit");
-  if (!mimeAllowed(input.mimeType))
-    throw new ValidationError("Only video, image, and PDF files are accepted");
+  assertValidUploadDeclaration(input);
 
   const { task, actor, submission } = await getUploadableSubmission(taskId);
   const folderId = await ensureSubmissionFolder(task, submission);
@@ -128,12 +123,26 @@ const sessionInclude = {
 
 type SessionWithTask = Prisma.UploadSessionGetPayload<{ include: typeof sessionInclude }>;
 
+// This function (and verifyAndRecordUpload below) only ever handles the
+// deliverable-upload path — submissionId is required here even though it's
+// optional on the model (task-attachment and client-hub uploads use their
+// own completion functions, see uploads.ts task-attachment additions and
+// client-files.ts).
+type SessionWithSubmission = SessionWithTask & {
+  submission: NonNullable<SessionWithTask["submission"]>;
+};
+
+function hasSubmission(session: SessionWithTask): session is SessionWithSubmission {
+  return session.submission !== null;
+}
+
 export async function completeUpload(uploadId: string, driveFileId: string) {
   const session = await db.uploadSession.findUnique({
     where: { id: uploadId },
     include: sessionInclude,
   });
   if (!session) throw new ValidationError("Upload session not found");
+  if (!hasSubmission(session)) throw new ValidationError("This upload session is not a deliverable upload");
   const task = session.submission.task;
   const actor = await authorize("submission.create", task);
   if (session.editorId !== actor.id && actor.role !== "ADMIN")
@@ -150,23 +159,18 @@ export async function completeUpload(uploadId: string, driveFileId: string) {
  * nightly reconciliation re-link (which attributes the action to the editor).
  */
 async function verifyAndRecordUpload(
-  session: SessionWithTask,
+  session: SessionWithSubmission,
   driveFileId: string,
   actor: { id: string; role: string },
 ) {
   const task = session.submission.task;
 
-  // Never trust the client's claim — verify against Drive itself.
-  const info = await getFileInfo(driveFileId);
-  if (!info) throw new ValidationError("Uploaded file not found in Drive");
-  if (info.appProperties.uploadSessionId !== session.id)
-    throw new ForbiddenError("File does not belong to this upload session");
-  if (!session.submission.driveFolderId || !info.parents.includes(session.submission.driveFolderId))
-    throw new ValidationError("File landed in an unexpected folder");
-  if (BigInt(info.size) !== session.declaredSize)
-    throw new ValidationError("Uploaded size does not match the declared size");
-  if (!mimeAllowed(info.mimeType))
-    throw new ValidationError("Drive detected a file type that is not accepted");
+  const info = await verifyDriveUpload({
+    driveFileId,
+    uploadSessionId: session.id,
+    expectedFolderId: session.submission.driveFolderId,
+    declaredSize: session.declaredSize,
+  });
 
   // Status-guarded transaction: the task may have been approved/cancelled/
   // reassigned while the browser was still uploading.
@@ -182,7 +186,7 @@ async function verifyAndRecordUpload(
       select: { status: true, assigneeId: true },
     });
     const open = await tx.submission.findUniqueOrThrow({
-      where: { id: session.submissionId },
+      where: { id: session.submission.id },
       select: { submittedAt: true },
     });
     if (current.status !== "IN_PROGRESS" || open.submittedAt !== null)
@@ -192,7 +196,7 @@ async function verifyAndRecordUpload(
 
     const created = await tx.file.create({
       data: {
-        submissionId: session.submissionId,
+        submissionId: session.submission.id,
         driveFileId,
         fileName: session.fileName,
         storedName: info.name,
@@ -231,12 +235,19 @@ export async function reconcileUploads() {
   if (isDriveConfigured()) {
     // 2. Re-link finished uploads whose browser died before calling complete.
     //    Same status guards as the normal path — never inject into closed rounds.
+    //    Scoped to deliverable (submissionId-set) sessions; task-attachment and
+    //    client-hub uploads have their own completion/reconcile functions.
     const pending = await db.uploadSession.findMany({
-      where: { status: "PENDING", createdAt: { lt: new Date(Date.now() - 3_600_000) } },
+      where: {
+        status: "PENDING",
+        createdAt: { lt: new Date(Date.now() - 3_600_000) },
+        submissionId: { not: null },
+      },
       include: sessionInclude,
       take: 100,
     });
     for (const session of pending) {
+      if (!hasSubmission(session)) continue;
       try {
         const driveFileId = await findFileByAppProperty("uploadSessionId", session.id);
         if (!driveFileId) continue;
@@ -267,4 +278,130 @@ export async function reconcileUploads() {
   }
 
   return { expired: expired.count, relinked, missing };
+}
+
+// ---------- Task attachments (reference/PEG images, brief material) ----------
+// Uploaded by whoever writes the brief (manager/CEO/admin), not the assigned
+// editor, and not gated by round state — only by the task not being closed.
+
+async function getAttachableTask(taskId: string) {
+  const task = await db.task.findUnique({ where: { id: taskId }, include: uploadInclude });
+  if (!task) throw new ValidationError("Task not found");
+  const actor = await authorize("task.write", task);
+  if (task.status === "POSTED" || task.status === "CANCELLED")
+    throw new ConflictError("This task is closed — attachments can no longer be added");
+  return { task, actor };
+}
+
+export async function createTaskAttachmentUploadSession(
+  taskId: string,
+  input: { fileName: string; sizeBytes: number; mimeType: string },
+) {
+  if (!isDriveConfigured())
+    throw new ValidationError("Google Drive is not configured yet — ask an admin");
+  assertValidUploadDeclaration(input);
+
+  const { task, actor } = await getAttachableTask(taskId);
+  const folderId = await ensureTaskFolder(task);
+
+  const original = sanitizeFileName(input.fileName);
+  const storedName = `${slugify(task.job.client.name, 30)}-${slugify(task.title, 40)}-ref-${original}`;
+
+  const session = await db.uploadSession.create({
+    data: {
+      taskId: task.id,
+      editorId: actor.id,
+      fileName: original,
+      declaredSize: BigInt(input.sizeBytes),
+      declaredMime: input.mimeType,
+    },
+  });
+
+  const sessionUri = await createResumableSession({
+    folderId,
+    fileName: storedName,
+    mimeType: input.mimeType,
+    sizeBytes: input.sizeBytes,
+    appProperties: { uploadSessionId: session.id, taskId: task.id },
+  });
+
+  return { uploadId: session.id, sessionUri, storedName };
+}
+
+const taskSessionInclude = {
+  task: { include: uploadInclude },
+} satisfies Prisma.UploadSessionInclude;
+
+type SessionWithMaybeTaskAttachment = Prisma.UploadSessionGetPayload<{
+  include: typeof taskSessionInclude;
+}>;
+
+type SessionWithTaskAttachment = SessionWithMaybeTaskAttachment & {
+  task: NonNullable<SessionWithMaybeTaskAttachment["task"]>;
+};
+
+function hasTaskAttachment(
+  session: SessionWithMaybeTaskAttachment,
+): session is SessionWithTaskAttachment {
+  return session.task !== null;
+}
+
+export async function completeTaskAttachmentUpload(uploadId: string, driveFileId: string) {
+  const session = await db.uploadSession.findUnique({
+    where: { id: uploadId },
+    include: taskSessionInclude,
+  });
+  if (!session) throw new ValidationError("Upload session not found");
+  if (!hasTaskAttachment(session))
+    throw new ValidationError("This upload session is not a task attachment");
+  const actor = await authorize("task.write", session.task);
+  if (session.editorId !== actor.id && actor.role !== "ADMIN")
+    throw new ForbiddenError("This upload belongs to another user");
+  if (session.status !== "PENDING") throw new ConflictError("Upload session is no longer active");
+
+  const info = await verifyDriveUpload({
+    driveFileId,
+    uploadSessionId: session.id,
+    expectedFolderId: session.task.driveFolderId,
+    declaredSize: session.declaredSize,
+  });
+
+  const file = await db.$transaction(async (tx) => {
+    const claimed = await tx.uploadSession.updateMany({
+      where: { id: session.id, status: "PENDING" },
+      data: { status: "COMPLETED", driveFileId },
+    });
+    if (claimed.count === 0) throw new ConflictError("Upload session is no longer active");
+
+    const current = await tx.task.findUniqueOrThrow({
+      where: { id: session.task.id },
+      select: { status: true },
+    });
+    if (current.status === "POSTED" || current.status === "CANCELLED")
+      throw new ConflictError("This task closed while the file was uploading");
+
+    const created = await tx.file.create({
+      data: {
+        taskId: session.task.id,
+        driveFileId,
+        fileName: session.fileName,
+        storedName: info.name,
+        mimeType: info.mimeType,
+        sizeBytes: BigInt(info.size),
+        uploadedById: session.editorId,
+      },
+    });
+    await logActivity(tx, {
+      actorId: actor.id,
+      action: "file.uploaded",
+      entityType: "file",
+      entityId: created.id,
+      jobId: session.task.jobId,
+      taskId: session.task.id,
+      meta: { attachment: true, name: info.name },
+    });
+    return created;
+  });
+
+  return { fileId: file.id };
 }

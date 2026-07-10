@@ -161,5 +161,6 @@ export default async function DashboardPage() {
 
   if (user.role === "EDITOR") return EditorDashboard(user.id);
   if (user.role === "MANAGER") return ManagerDashboard(user.id);
-  return CompanyDashboard(); // ADMIN + CEO
+  if (user.role === "CLIENT") redirect("/client-hub");
+  return CompanyDashboard(); // ADMIN + CEO + VIEWER
 }

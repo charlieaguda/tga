@@ -11,6 +11,7 @@ export default async function JobPage(props: { params: Promise<{ id: string }> }
   const session = await auth();
   const user = session?.user;
   if (!user?.isActive) redirect("/login");
+  if (user.role === "CLIENT") redirect("/client-hub");
 
   const { id } = await props.params;
   const job = await db.job.findUnique({
