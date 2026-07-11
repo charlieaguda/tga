@@ -270,6 +270,7 @@ model File {
   driveStatus  String        @default("ok")
   uploadedById String
   uploadedBy   User          @relation(fields: [uploadedById], references: [id])
+  description  String?
   createdAt    DateTime      @default(now())
 
   @@index([submissionId])

@@ -70,28 +70,42 @@ export function FileLink({
   href,
   name,
   sizeBytes,
+  description,
+  extra,
 }: {
   href: string;
   name: string;
   sizeBytes: bigint | number;
+  description?: string | null;
+  extra?: React.ReactNode;
 }) {
   return (
-    <li className="flex items-center justify-between gap-3 rounded-xl border border-slate-200/60 bg-slate-50/50 px-3.5 py-2 hover:bg-slate-100/50 dark:border-slate-800/40 dark:bg-slate-800/20 dark:hover:bg-slate-800/40 transition-colors">
-      <a
-        href={href}
-        target="_blank"
-        rel="noreferrer noopener"
-        className="flex items-center gap-2 text-sm font-medium text-slate-700 hover:text-brand-600 dark:text-slate-300 dark:hover:text-brand-500 transition-colors truncate"
-      >
-        <svg className="h-4 w-4 shrink-0 text-slate-400 dark:text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
-          <path d="M7 3h7l5 5v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" strokeLinejoin="round" />
-          <path d="M14 3v5h5" strokeLinejoin="round" />
-        </svg>
-        <span className="truncate">{name}</span>
-      </a>
-      <span className="shrink-0 text-xs text-slate-400 dark:text-slate-500">
-        {(Number(sizeBytes) / 1024 / 1024).toFixed(1)} MB
-      </span>
+    <li className="flex flex-col gap-1.5 rounded-xl border border-slate-200/60 bg-slate-50/50 px-3.5 py-2 hover:bg-slate-100/50 dark:border-slate-800/40 dark:bg-slate-800/20 dark:hover:bg-slate-800/40 transition-colors">
+      <div className="flex items-center justify-between gap-3">
+        <a
+          href={href}
+          target="_blank"
+          rel="noreferrer noopener"
+          className="flex items-center gap-2 text-sm font-medium text-slate-700 hover:text-brand-600 dark:text-slate-300 dark:hover:text-brand-500 transition-colors truncate"
+        >
+          <svg className="h-4 w-4 shrink-0 text-slate-400 dark:text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+            <path d="M7 3h7l5 5v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" strokeLinejoin="round" />
+            <path d="M14 3v5h5" strokeLinejoin="round" />
+          </svg>
+          <span className="truncate">{name}</span>
+        </a>
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="text-xs text-slate-400 dark:text-slate-500">
+            {(Number(sizeBytes) / 1024 / 1024).toFixed(1)} MB
+          </span>
+          {extra}
+        </div>
+      </div>
+      {description && (
+        <p className="pl-6 text-xs text-slate-500 dark:text-slate-400 whitespace-pre-wrap leading-relaxed border-t border-slate-100/50 pt-1.5 dark:border-slate-800/20">
+          {description}
+        </p>
+      )}
     </li>
   );
 }

@@ -9,6 +9,7 @@ import * as jobs from "@/lib/services/jobs";
 import * as clients from "@/lib/services/clients";
 import * as admin from "@/lib/services/admin";
 import * as credentials from "@/lib/services/auth-credentials";
+import * as clientFiles from "@/lib/services/client-files";
 import { createSessionForUser, destroySession } from "@/lib/auth-session";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/permissions";
@@ -312,5 +313,18 @@ export async function notificationsMarkAllRead() {
       where: { userId: user.id, readAt: null },
       data: { readAt: new Date() },
     });
+  });
+}
+
+export async function updateFileDescription(_prev: ActionResult, formData: FormData) {
+  const parsed = z
+    .object({
+      fileId: id,
+      description: z.string().trim().max(1000)
+    })
+    .safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
+  return guard(async () => {
+    await clientFiles.updateClientFileDescription(parsed.data.fileId, parsed.data.description);
   });
 }

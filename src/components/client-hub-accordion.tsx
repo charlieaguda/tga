@@ -1,0 +1,260 @@
+"use client";
+
+import { useState } from "react";
+import Link from "next/link";
+import { FileCategory } from "@prisma/client";
+import { CATEGORY_LABELS } from "@/lib/file-categories";
+import { ClientFileItem } from "@/components/client-file-item";
+import { MonthCalendar } from "@/components/month-calendar";
+
+interface ClientFile {
+  id: string;
+  driveFileId: string;
+  storedName: string;
+  sizeBytes: bigint | number;
+  category: FileCategory | null;
+  description: string | null;
+}
+
+interface ClientWithFilesAndActivity {
+  id: string;
+  name: string;
+  notes: string | null;
+  notionUrl: string | null;
+  files: ClientFile[];
+  activeDays: string[];
+}
+
+export function ClientHubAccordion({
+  clients,
+  year,
+  month,
+  canEdit,
+}: {
+  clients: ClientWithFilesAndActivity[];
+  year: number;
+  month: number;
+  canEdit: boolean;
+}) {
+  return (
+    <div className="flex flex-col gap-4">
+      {clients.map((c) => (
+        <ClientCard key={c.id} client={c} year={year} month={month} canEdit={canEdit} />
+      ))}
+      {clients.length === 0 && (
+        <div className="rounded-2xl border border-dashed border-slate-200 p-8 text-center text-sm text-slate-500 dark:border-slate-800 dark:text-slate-400">
+          No assigned clients found.
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ClientCard({
+  client,
+  year,
+  month,
+  canEdit,
+}: {
+  client: ClientWithFilesAndActivity;
+  year: number;
+  month: number;
+  canEdit: boolean;
+}) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [expandedCategories, setExpandedCategories] = useState<Record<FileCategory, boolean>>({} as Record<FileCategory, boolean>);
+
+  const toggleCategory = (cat: FileCategory) => {
+    setExpandedCategories((prev) => ({
+      ...prev,
+      [cat]: !prev[cat],
+    }));
+  };
+
+  const fileCount = client.files.length;
+  const noteExcerpt = client.notes
+    ? client.notes.length > 80
+      ? client.notes.slice(0, 80) + "..."
+      : client.notes
+    : "";
+
+  return (
+    <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_2px_12px_-3px_rgba(0,0,0,0.02)] dark:border-slate-800/80 dark:bg-slate-900 transition-all duration-200">
+      {/* Clickable Header */}
+      <button
+        type="button"
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="flex w-full items-center justify-between p-5 text-left transition-colors hover:bg-slate-50/50 dark:hover:bg-slate-800/20"
+      >
+        <div className="min-w-0 flex-1 pr-4">
+          <h3 className="text-base font-bold text-slate-800 dark:text-slate-200">{client.name}</h3>
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 truncate">
+            {noteExcerpt ? `${noteExcerpt} · ` : ""}
+            <span className="font-semibold text-slate-600 dark:text-slate-300">
+              {fileCount} {fileCount === 1 ? "file" : "files"}
+            </span>{" "}
+            in client hub
+          </p>
+        </div>
+        <div className="flex items-center gap-3 shrink-0">
+          <span className="text-xs font-semibold text-brand-600 dark:text-brand-400">
+            {isExpanded ? "Collapse" : "Open Hub Details"}
+          </span>
+          <svg
+            className={`h-5 w-5 text-slate-400 transition-transform duration-300 dark:text-slate-500 ${
+              isExpanded ? "rotate-180" : ""
+            }`}
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+          </svg>
+        </div>
+      </button>
+
+      {/* Expanded card contents */}
+      {isExpanded && (
+        <div className="border-t border-slate-100 p-5 dark:border-slate-800/80 bg-slate-50/20 dark:bg-slate-900/10 flex flex-col gap-6">
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+            
+            {/* Notes Column */}
+            <div className="flex flex-col gap-5">
+              <div>
+                <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-2">
+                  Notes & guidelines
+                </h4>
+                {client.notes ? (
+                  <div className="rounded-xl border border-slate-200/60 bg-white p-4 text-sm text-slate-700 whitespace-pre-wrap dark:border-slate-800/60 dark:bg-slate-950/40 dark:text-slate-300 shadow-sm leading-relaxed">
+                    {client.notes}
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-400 dark:text-slate-500 italic">No notes provided.</p>
+                )}
+              </div>
+
+              {client.notionUrl && (
+                <div className="flex flex-col gap-2">
+                  <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                    Linked Notion Workspace
+                  </h4>
+                  <iframe
+                    src={client.notionUrl}
+                    className="h-[35vh] w-full rounded-xl border border-slate-200 dark:border-slate-800/80 bg-white dark:bg-slate-950 shadow-sm"
+                  />
+                  <a
+                    href={client.notionUrl}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    className="inline-flex items-center gap-1 text-xs text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300 font-semibold"
+                  >
+                    Open page in Notion new tab
+                    <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                  </a>
+                </div>
+              )}
+            </div>
+
+            {/* Collapsible File Categories Grid (2 Columns inside parent grid column) */}
+            <div>
+              <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-3">
+                Client Hub files (By Category)
+              </h4>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {Object.keys(CATEGORY_LABELS).map((catKey) => {
+                  const fileCategory = catKey as FileCategory;
+                  const catFiles = client.files.filter((f) => f.category === fileCategory);
+                  const isCatExpanded = !!expandedCategories[fileCategory];
+
+                  return (
+                    <div
+                      key={fileCategory}
+                      className="rounded-xl border border-slate-200/50 bg-white/50 p-3 dark:border-slate-800/50 dark:bg-slate-900/50 flex flex-col gap-2 h-fit"
+                    >
+                      {/* Category Header Button */}
+                      <button
+                        type="button"
+                        onClick={() => toggleCategory(fileCategory)}
+                        className="flex w-full items-center justify-between text-left text-xs font-semibold text-slate-700 hover:text-brand-600 dark:text-slate-300 dark:hover:text-brand-400 transition-colors"
+                      >
+                        <span className="truncate pr-2">
+                          {CATEGORY_LABELS[fileCategory]} ({catFiles.length})
+                        </span>
+                        <svg
+                          className={`h-4.5 w-4.5 shrink-0 text-slate-400 transition-transform duration-250 dark:text-slate-500 ${
+                            isCatExpanded ? "rotate-180" : ""
+                          }`}
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+
+                      {/* Dropdown File List */}
+                      {isCatExpanded && (
+                        <ul className="flex flex-col gap-1.5 mt-1 border-t border-slate-100/80 pt-2 dark:border-slate-800/40">
+                          {catFiles.length > 0 ? (
+                            catFiles.map((f) => (
+                              <ClientFileItem
+                                key={f.id}
+                                file={f}
+                                canEdit={canEdit}
+                              />
+                            ))
+                          ) : (
+                            <span className="text-[10px] text-slate-400 dark:text-slate-500 italic pl-1 py-1">
+                              No files uploaded yet.
+                            </span>
+                          )}
+                        </ul>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {fileCount === 0 && (
+                <p className="text-xs text-slate-400 dark:text-slate-500 italic">No files have been uploaded yet.</p>
+              )}
+            </div>
+          </div>
+
+          {/* Month Calendar Section (Below notes/files) */}
+          <div className="border-t border-slate-100 pt-5 dark:border-slate-800/80">
+            <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-3">
+              Upload Activity (Current Month)
+            </h4>
+            <div className="max-w-md rounded-xl border border-slate-200/60 bg-white p-4 dark:border-slate-800/60 dark:bg-slate-950/40">
+              <MonthCalendar
+                year={year}
+                month={month}
+                activeDays={new Set(client.activeDays)}
+                baseHref={`/client-hub/${client.id}`}
+              />
+            </div>
+          </div>
+
+          {/* Footer Action */}
+          <div className="flex items-center justify-end border-t border-slate-100 pt-4 dark:border-slate-800/80">
+            <Link
+              href={`/client-hub/${client.id}`}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200/80 bg-white/70 backdrop-blur-sm px-4 py-2 text-xs font-semibold text-slate-700 shadow-sm transition-all hover:bg-slate-100 hover:scale-[1.01] active:scale-[0.99] dark:border-slate-800/80 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+            >
+              Go to Full Client Hub Page
+              <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" />
+              </svg>
+            </Link>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

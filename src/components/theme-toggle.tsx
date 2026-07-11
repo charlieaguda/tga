@@ -81,6 +81,7 @@ export function ThemeToggle() {
   return (
     <div className="relative inline-block text-left" ref={dropdownRef}>
       <button
+        type="button"
         onClick={() => setOpen(!open)}
         className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200/80 bg-white/50 text-slate-700 backdrop-blur-sm transition-all hover:bg-slate-100 hover:scale-105 active:scale-95 dark:border-slate-800/80 dark:bg-slate-900/50 dark:text-slate-300 dark:hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
         aria-label="Toggle theme"
@@ -105,6 +106,7 @@ export function ThemeToggle() {
       {open && (
         <div className="absolute right-0 z-30 mt-2 w-32 origin-top-right rounded-xl border border-slate-200/80 bg-white/90 p-1 shadow-lg ring-1 ring-black/5 backdrop-blur-md transition-all animate-in fade-in slide-in-from-top-1 dark:border-slate-800/80 dark:bg-slate-900/90 dark:ring-white/5">
           <button
+            type="button"
             onClick={() => applyTheme("light")}
             className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-left transition-colors ${
               theme === "light"
@@ -118,6 +120,7 @@ export function ThemeToggle() {
             Light
           </button>
           <button
+            type="button"
             onClick={() => applyTheme("dark")}
             className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-left transition-colors ${
               theme === "dark"
@@ -131,6 +134,7 @@ export function ThemeToggle() {
             Dark
           </button>
           <button
+            type="button"
             onClick={() => applyTheme("system")}
             className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-left transition-colors ${
               theme === "system"

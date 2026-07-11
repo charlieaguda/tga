@@ -1,6 +1,6 @@
 import type { Client, FileCategory, Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
-import { authorize } from "@/lib/permissions";
+import { authorize, requireUser } from "@/lib/permissions";
 import { logActivity } from "@/lib/activity";
 import { ConflictError, ForbiddenError, ValidationError } from "@/lib/errors";
 import {
@@ -219,4 +219,44 @@ export async function reconcileClientUploads(): Promise<{ relinked: number }> {
     }
   }
   return { relinked };
+}
+
+export async function updateClientFileDescription(fileId: string, description: string) {
+  const actor = await requireUser();
+  const file = await db.file.findUnique({
+    where: { id: fileId },
+  });
+  if (!file) throw new ValidationError("File not found");
+
+  if (actor.role !== "ADMIN" && actor.role !== "MANAGER" && actor.role !== "EDITOR") {
+    throw new ForbiddenError("You are not authorized to update file descriptions");
+  }
+
+  if (actor.role === "EDITOR") {
+    if (!file.clientId) {
+      throw new ForbiddenError("You are not authorized to update this file description");
+    }
+    const hasTask = await db.task.count({
+      where: { assigneeId: actor.id, job: { clientId: file.clientId } },
+    });
+    if (hasTask === 0) {
+      throw new ForbiddenError("You are not authorized to update file descriptions for this client");
+    }
+  }
+
+  const updated = await db.file.update({
+    where: { id: fileId },
+    data: { description },
+  });
+
+  await logActivity(db, {
+    actorId: actor.id,
+    action: "file.description.updated",
+    entityType: "file",
+    entityId: fileId,
+    clientId: file.clientId ?? undefined,
+    meta: { name: file.storedName, description },
+  });
+
+  return updated;
 }

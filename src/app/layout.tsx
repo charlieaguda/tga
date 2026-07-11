@@ -65,10 +65,11 @@ export default async function RootLayout({
                 <Image
                   src="/logo.webp"
                   alt="The Growth Academy"
-                  width={112}
-                  height={28}
+                  width={144}
+                  height={36}
                   priority
-                  className="h-7 w-auto rounded-md bg-white p-0.5 shadow-sm"
+                  className="h-9 w-auto rounded-md bg-white p-0.5 shadow-sm"
+                  style={{ height: "auto" }}
                 />
               </Link>
               <NavLink href="/dashboard">Dashboard</NavLink>

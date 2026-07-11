@@ -8,9 +8,10 @@ import { ActionForm } from "@/components/action-form";
 import { ClientFileUploader } from "@/components/file-drop-uploader";
 import { MonthCalendar } from "@/components/month-calendar";
 import { CATEGORY_LABELS, CLIENT_WRITABLE_CATEGORIES, FILE_CATEGORIES } from "@/lib/file-categories";
-import { driveViewLink, isDriveConfigured } from "@/lib/drive";
+import { isDriveConfigured } from "@/lib/drive";
 import { fmtDate } from "@/lib/format";
-import { Section, FileLink } from "@/components/ui";
+import { Section } from "@/components/ui";
+import { ClientFileItem } from "@/components/client-file-item";
 
 const inputCls =
   "rounded-lg border border-slate-300 px-3 py-1.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-slate-600 dark:bg-slate-800";
@@ -22,6 +23,8 @@ export default async function ClientHubDetailPage(props: {
   const session = await auth();
   const user = session?.user;
   if (!user?.isActive) redirect("/login");
+
+  const canEdit = user.role === "ADMIN" || user.role === "MANAGER" || user.role === "EDITOR";
 
   const { id } = await props.params;
   if (user.role === "CLIENT" && user.clientId !== id) {
@@ -142,7 +145,7 @@ export default async function ClientHubDetailPage(props: {
           ) : (
             <ul className="flex flex-col gap-1 text-sm">
               {filesByCategory.get(category)!.map((f) => (
-                <FileLink key={f.id} href={driveViewLink(f.driveFileId)} name={f.storedName} sizeBytes={f.sizeBytes} />
+                <ClientFileItem key={f.id} file={f} canEdit={canEdit} />
               ))}
             </ul>
           )}

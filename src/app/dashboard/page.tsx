@@ -7,6 +7,7 @@ import { TaskTable } from "@/components/task-table";
 import { TaskStatusBadge } from "@/components/status-badge";
 import { isOverdue } from "@/lib/format";
 import { PageHeader, Section, StatTile, EmptyState } from "@/components/ui";
+import { ClientHubAccordion } from "@/components/client-hub-accordion";
 
 const include = { job: { include: { client: true } }, assignee: true } satisfies Prisma.TaskInclude;
 const OPEN: TaskStatus[] = ["ASSIGNED", "IN_PROGRESS", "SUBMITTED", "CHANGES_REQUESTED", "APPROVED"];
@@ -28,7 +29,13 @@ function WorkloadBar({ name, count, max, overdue }: { name: string; count: numbe
 }
 
 async function EditorDashboard(userId: string) {
-  const [queue, changesRequested, recentlyPosted] = await Promise.all([
+  const now = new Date();
+  const year = now.getUTCFullYear();
+  const month = now.getUTCMonth() + 1;
+  const monthStart = new Date(Date.UTC(year, month - 1, 1));
+  const monthEnd = new Date(Date.UTC(year, month, 1));
+
+  const [queue, changesRequested, recentlyPosted, clients] = await Promise.all([
     db.task.findMany({
       where: { assigneeId: userId, status: { in: ["ASSIGNED", "IN_PROGRESS", "SUBMITTED"] } },
       include,
@@ -45,7 +52,48 @@ async function EditorDashboard(userId: string) {
       orderBy: { postedAt: "desc" },
       take: 5,
     }),
+    db.client.findMany({
+      where: {
+        isActive: true,
+        jobs: {
+          some: {
+            tasks: {
+              some: {
+                assigneeId: userId,
+              },
+            },
+          },
+        },
+      },
+      include: {
+        files: {
+          where: { category: { not: null } },
+          orderBy: { createdAt: "desc" },
+        },
+      },
+      orderBy: { name: "asc" },
+    }),
   ]);
+
+  const clientIds = clients.map((c) => c.id);
+  const uploads = await db.activityLog.findMany({
+    where: {
+      clientId: { in: clientIds },
+      action: "file.uploaded",
+      createdAt: { gte: monthStart, lt: monthEnd },
+    },
+    select: { clientId: true, createdAt: true },
+  });
+
+  const clientsWithActivity = clients.map((c) => {
+    const clientUploads = uploads.filter((u) => u.clientId === c.id);
+    const activeDays = clientUploads.map((u) => u.createdAt.toISOString().slice(0, 10));
+    return {
+      ...c,
+      activeDays,
+    };
+  });
+
   const overdueCount = [...queue, ...changesRequested].filter(isOverdue).length;
   return (
     <div className="flex flex-col gap-5">
@@ -55,6 +103,9 @@ async function EditorDashboard(userId: string) {
           {overdueCount} of your tasks are overdue.
         </div>
       )}
+      <Section title="Client Hub">
+        <ClientHubAccordion clients={clientsWithActivity} year={year} month={month} canEdit={true} />
+      </Section>
       {changesRequested.length > 0 && (
         <Section title="Changes requested — action needed">
           <TaskTable tasks={changesRequested} empty="" />
@@ -71,7 +122,13 @@ async function EditorDashboard(userId: string) {
 }
 
 async function ManagerDashboard(userId: string) {
-  const [awaitingReview, toPost, myOpen, drafts, recentlyPosted] = await Promise.all([
+  const now = new Date();
+  const year = now.getUTCFullYear();
+  const month = now.getUTCMonth() + 1;
+  const monthStart = new Date(Date.UTC(year, month - 1, 1));
+  const monthEnd = new Date(Date.UTC(year, month, 1));
+
+  const [awaitingReview, toPost, myOpen, drafts, recentlyPosted, clients] = await Promise.all([
     db.task.findMany({
       where: { job: { managerId: userId }, status: "SUBMITTED" },
       include,
@@ -98,7 +155,43 @@ async function ManagerDashboard(userId: string) {
       orderBy: { postedAt: "desc" },
       take: 8,
     }),
+    db.client.findMany({
+      where: {
+        isActive: true,
+        jobs: {
+          some: {
+            managerId: userId,
+          },
+        },
+      },
+      include: {
+        files: {
+          where: { category: { not: null } },
+          orderBy: { createdAt: "desc" },
+        },
+      },
+      orderBy: { name: "asc" },
+    }),
   ]);
+
+  const clientIds = clients.map((c) => c.id);
+  const uploads = await db.activityLog.findMany({
+    where: {
+      clientId: { in: clientIds },
+      action: "file.uploaded",
+      createdAt: { gte: monthStart, lt: monthEnd },
+    },
+    select: { clientId: true, createdAt: true },
+  });
+
+  const clientsWithActivity = clients.map((c) => {
+    const clientUploads = uploads.filter((u) => u.clientId === c.id);
+    const activeDays = clientUploads.map((u) => u.createdAt.toISOString().slice(0, 10));
+    return {
+      ...c,
+      activeDays,
+    };
+  });
 
   const workload = new Map<string, number>();
   for (const t of myOpen) {
@@ -112,6 +205,9 @@ async function ManagerDashboard(userId: string) {
   return (
     <div className="flex flex-col gap-5">
       <PageHeader title="My clients" />
+      <Section title="Client Hub">
+        <ClientHubAccordion clients={clientsWithActivity} year={year} month={month} canEdit={true} />
+      </Section>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Section title="Overdue (mine)">
           <StatTile value={myOverdueCount} tone={myOverdueCount ? "danger" : "default"} />

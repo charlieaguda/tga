@@ -108,6 +108,57 @@ async function main() {
       uploadedById: ed1.id,
     },
   });
+
+  // Seed Client Hub files (direct client files with category)
+  await db.file.create({
+    data: {
+      clientId: acme.id,
+      category: "BRAND_GUIDELINES",
+      driveFileId: "seed-acme-guidelines",
+      fileName: "acme-brand-book-2026.pdf",
+      storedName: "acme-brand-book-2026.pdf",
+      mimeType: "application/pdf",
+      sizeBytes: BigInt(8_400_000),
+      uploadedById: mgr1.id,
+    },
+  });
+  await db.file.create({
+    data: {
+      clientId: acme.id,
+      category: "LOGO",
+      driveFileId: "seed-acme-logo",
+      fileName: "acme-logo-vectors.zip",
+      storedName: "acme-logo-vectors.zip",
+      mimeType: "application/zip",
+      sizeBytes: BigInt(12_100_000),
+      uploadedById: mgr1.id,
+    },
+  });
+  await db.file.create({
+    data: {
+      clientId: bloom.id,
+      category: "BRAND_COLORS",
+      driveFileId: "seed-bloom-colors",
+      fileName: "bloom-cafe-color-palette.png",
+      storedName: "bloom-cafe-color-palette.png",
+      mimeType: "image/png",
+      sizeBytes: BigInt(1_200_000),
+      uploadedById: mgr2.id,
+    },
+  });
+  await db.file.create({
+    data: {
+      clientId: bloom.id,
+      category: "ASSETS",
+      driveFileId: "seed-bloom-assets",
+      fileName: "bloom-interior-photos.zip",
+      storedName: "bloom-interior-photos.zip",
+      mimeType: "application/zip",
+      sizeBytes: BigInt(45_000_000),
+      uploadedById: mgr2.id,
+    },
+  });
+
   void t2;
 
   // Dev sessions (skippable with SEED_SESSIONS=0)

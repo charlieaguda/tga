@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { loginWithPassword } from "@/lib/actions";
 import { ActionForm } from "@/components/action-form";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export default async function LoginPage() {
   const session = await auth();
@@ -10,14 +11,18 @@ export default async function LoginPage() {
 
   return (
     <div className="flex min-h-[70vh] items-center justify-center">
-      <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-8 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <div className="relative w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-8 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div className="absolute top-4 right-4">
+          <ThemeToggle />
+        </div>
         <Image
           src="/logo.webp"
           alt="The Growth Academy"
-          width={160}
-          height={40}
+          width={224}
+          height={56}
           priority
-          className="mx-auto h-10 w-auto"
+          className="mx-auto h-14 w-auto"
+          style={{ height: "auto" }}
         />
         <p className="mt-4 text-center text-sm text-slate-500 dark:text-slate-400">
           Sign in with your work account.

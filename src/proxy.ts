@@ -11,9 +11,6 @@ export default function proxy(req: NextRequest) {
     const url = new URL("/login", req.url);
     return NextResponse.redirect(url);
   }
-  if (hasSession && req.nextUrl.pathname === "/login") {
-    return NextResponse.redirect(new URL("/dashboard", req.url));
-  }
   return NextResponse.next();
 }
 
