@@ -2,18 +2,42 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { FileCategory } from "@prisma/client";
-import { CATEGORY_LABELS } from "@/lib/file-categories";
+import type { TaskStatus } from "@prisma/client";
+import { AddCategoryButton } from "@/components/add-category-button";
 import { ClientFileItem } from "@/components/client-file-item";
 import { MonthCalendar } from "@/components/month-calendar";
+import { TaskStatusBadge } from "@/components/status-badge";
+import { isOverdue, fmtDate } from "@/lib/format";
+import { buildTaskDaysMap } from "@/lib/task-calendar";
+
+interface CategoryDef {
+  key: string;
+  label: string;
+  clientWritable: boolean;
+}
 
 interface ClientFile {
   id: string;
   driveFileId: string;
   storedName: string;
   sizeBytes: bigint | number;
-  category: FileCategory | null;
+  category: string | null;
   description: string | null;
+}
+
+interface TaskSummary {
+  id: string;
+  title: string;
+  status: TaskStatus;
+  createdAt: Date;
+  dueAt: Date | null;
+  assignee?: { name: string } | null;
+}
+
+interface JobWithTasks {
+  id: string;
+  title: string;
+  tasks: TaskSummary[];
 }
 
 interface ClientWithFilesAndActivity {
@@ -23,6 +47,7 @@ interface ClientWithFilesAndActivity {
   notionUrl: string | null;
   files: ClientFile[];
   activeDays: string[];
+  jobs: JobWithTasks[];
 }
 
 export function ClientHubAccordion({
@@ -30,16 +55,28 @@ export function ClientHubAccordion({
   year,
   month,
   canEdit,
+  canManage,
+  categories,
 }: {
   clients: ClientWithFilesAndActivity[];
   year: number;
   month: number;
   canEdit: boolean;
+  canManage: boolean;
+  categories: CategoryDef[];
 }) {
   return (
     <div className="flex flex-col gap-4">
       {clients.map((c) => (
-        <ClientCard key={c.id} client={c} year={year} month={month} canEdit={canEdit} />
+        <ClientCard
+          key={c.id}
+          client={c}
+          year={year}
+          month={month}
+          canEdit={canEdit}
+          canManage={canManage}
+          categories={categories}
+        />
       ))}
       {clients.length === 0 && (
         <div className="rounded-2xl border border-dashed border-slate-200 p-8 text-center text-sm text-slate-500 dark:border-slate-800 dark:text-slate-400">
@@ -55,16 +92,20 @@ function ClientCard({
   year,
   month,
   canEdit,
+  canManage,
+  categories,
 }: {
   client: ClientWithFilesAndActivity;
   year: number;
   month: number;
   canEdit: boolean;
+  canManage: boolean;
+  categories: CategoryDef[];
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [expandedCategories, setExpandedCategories] = useState<Record<FileCategory, boolean>>({} as Record<FileCategory, boolean>);
+  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
 
-  const toggleCategory = (cat: FileCategory) => {
+  const toggleCategory = (cat: string) => {
     setExpandedCategories((prev) => ({
       ...prev,
       [cat]: !prev[cat],
@@ -77,6 +118,7 @@ function ClientCard({
       ? client.notes.slice(0, 80) + "..."
       : client.notes
     : "";
+  const taskDays = canManage ? buildTaskDaysMap(client.jobs.flatMap((j) => j.tasks)) : undefined;
 
   return (
     <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_2px_12px_-3px_rgba(0,0,0,0.02)] dark:border-slate-800/80 dark:bg-slate-900 transition-all duration-200">
@@ -134,6 +176,60 @@ function ClientCard({
                 )}
               </div>
 
+              <div>
+                <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-2">
+                  Jobs & tasks
+                </h4>
+                {client.jobs.length === 0 ? (
+                  <p className="text-xs text-slate-400 dark:text-slate-500 italic">No jobs yet.</p>
+                ) : (
+                  <div className="flex flex-col gap-3">
+                    {client.jobs.map((job) => (
+                      <div
+                        key={job.id}
+                        className="rounded-xl border border-slate-200/60 bg-white p-3 dark:border-slate-800/60 dark:bg-slate-950/40"
+                      >
+                        <Link
+                          href={`/jobs/${job.id}`}
+                          className="mb-1.5 block truncate text-xs font-semibold text-slate-700 hover:text-brand-600 dark:text-slate-300 dark:hover:text-brand-400"
+                        >
+                          {job.title}
+                        </Link>
+                        {job.tasks.length === 0 ? (
+                          <p className="text-[10px] text-slate-400 dark:text-slate-500 italic">No tasks yet.</p>
+                        ) : (
+                          <ul className="flex flex-col gap-1.5">
+                            {job.tasks.map((t) => (
+                              <li key={t.id} className="flex items-center justify-between gap-2 text-xs">
+                                <Link
+                                  href={`/tasks/${t.id}`}
+                                  className="truncate text-slate-600 hover:text-brand-600 dark:text-slate-400 dark:hover:text-brand-400"
+                                >
+                                  {t.title}
+                                </Link>
+                                <div className="flex shrink-0 items-center gap-1.5">
+                                  {t.assignee && (
+                                    <span className="text-[10px] text-slate-400 dark:text-slate-500">
+                                      {t.assignee.name}
+                                    </span>
+                                  )}
+                                  {isOverdue(t) && (
+                                    <span className="text-[10px] font-semibold text-red-600 dark:text-red-400">
+                                      due {fmtDate(t.dueAt)}
+                                    </span>
+                                  )}
+                                  <TaskStatusBadge status={t.status} />
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               {client.notionUrl && (
                 <div className="flex flex-col gap-2">
                   <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
@@ -163,26 +259,25 @@ function ClientCard({
               <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-3">
                 Client Hub files (By Category)
               </h4>
-              
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {Object.keys(CATEGORY_LABELS).map((catKey) => {
-                  const fileCategory = catKey as FileCategory;
-                  const catFiles = client.files.filter((f) => f.category === fileCategory);
-                  const isCatExpanded = !!expandedCategories[fileCategory];
+                {categories.map((category) => {
+                  const catFiles = client.files.filter((f) => f.category === category.key);
+                  const isCatExpanded = !!expandedCategories[category.key];
 
                   return (
                     <div
-                      key={fileCategory}
+                      key={category.key}
                       className="rounded-xl border border-slate-200/50 bg-white/50 p-3 dark:border-slate-800/50 dark:bg-slate-900/50 flex flex-col gap-2 h-fit"
                     >
                       {/* Category Header Button */}
                       <button
                         type="button"
-                        onClick={() => toggleCategory(fileCategory)}
+                        onClick={() => toggleCategory(category.key)}
                         className="flex w-full items-center justify-between text-left text-xs font-semibold text-slate-700 hover:text-brand-600 dark:text-slate-300 dark:hover:text-brand-400 transition-colors"
                       >
                         <span className="truncate pr-2">
-                          {CATEGORY_LABELS[fileCategory]} ({catFiles.length})
+                          {category.label} ({catFiles.length})
                         </span>
                         <svg
                           className={`h-4.5 w-4.5 shrink-0 text-slate-400 transition-transform duration-250 dark:text-slate-500 ${
@@ -223,6 +318,10 @@ function ClientCard({
               {fileCount === 0 && (
                 <p className="text-xs text-slate-400 dark:text-slate-500 italic">No files have been uploaded yet.</p>
               )}
+
+              <div className="mt-3 flex justify-center rounded-xl border border-dashed border-slate-300 bg-white/50 p-3 dark:border-slate-700 dark:bg-slate-900/50">
+                <AddCategoryButton />
+              </div>
             </div>
           </div>
 
@@ -237,6 +336,7 @@ function ClientCard({
                 month={month}
                 activeDays={new Set(client.activeDays)}
                 baseHref={`/client-hub/${client.id}`}
+                taskDays={taskDays}
               />
             </div>
           </div>

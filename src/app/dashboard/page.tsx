@@ -8,6 +8,7 @@ import { TaskStatusBadge } from "@/components/status-badge";
 import { isOverdue } from "@/lib/format";
 import { PageHeader, Section, StatTile, EmptyState } from "@/components/ui";
 import { ClientHubAccordion } from "@/components/client-hub-accordion";
+import { listCategories } from "@/lib/services/categories";
 
 const include = { job: { include: { client: true } }, assignee: true } satisfies Prisma.TaskInclude;
 const OPEN: TaskStatus[] = ["ASSIGNED", "IN_PROGRESS", "SUBMITTED", "CHANGES_REQUESTED", "APPROVED"];
@@ -35,7 +36,7 @@ async function EditorDashboard(userId: string) {
   const monthStart = new Date(Date.UTC(year, month - 1, 1));
   const monthEnd = new Date(Date.UTC(year, month, 1));
 
-  const [queue, changesRequested, recentlyPosted, clients] = await Promise.all([
+  const [queue, changesRequested, recentlyPosted, clients, categories] = await Promise.all([
     db.task.findMany({
       where: { assigneeId: userId, status: { in: ["ASSIGNED", "IN_PROGRESS", "SUBMITTED"] } },
       include,
@@ -70,9 +71,20 @@ async function EditorDashboard(userId: string) {
           where: { category: { not: null } },
           orderBy: { createdAt: "desc" },
         },
+        jobs: {
+          where: { tasks: { some: { assigneeId: userId } } },
+          include: {
+            tasks: {
+              where: { assigneeId: userId },
+              orderBy: { updatedAt: "desc" },
+              select: { id: true, title: true, status: true, createdAt: true, dueAt: true },
+            },
+          },
+        },
       },
       orderBy: { name: "asc" },
     }),
+    listCategories(),
   ]);
 
   const clientIds = clients.map((c) => c.id);
@@ -104,7 +116,14 @@ async function EditorDashboard(userId: string) {
         </div>
       )}
       <Section title="Client Hub">
-        <ClientHubAccordion clients={clientsWithActivity} year={year} month={month} canEdit={true} />
+        <ClientHubAccordion
+          clients={clientsWithActivity}
+          year={year}
+          month={month}
+          canEdit={true}
+          canManage={false}
+          categories={categories}
+        />
       </Section>
       {changesRequested.length > 0 && (
         <Section title="Changes requested — action needed">
@@ -128,7 +147,7 @@ async function ManagerDashboard(userId: string) {
   const monthStart = new Date(Date.UTC(year, month - 1, 1));
   const monthEnd = new Date(Date.UTC(year, month, 1));
 
-  const [awaitingReview, toPost, myOpen, drafts, recentlyPosted, clients] = await Promise.all([
+  const [awaitingReview, toPost, myOpen, drafts, recentlyPosted, clients, categories] = await Promise.all([
     db.task.findMany({
       where: { job: { managerId: userId }, status: "SUBMITTED" },
       include,
@@ -169,9 +188,26 @@ async function ManagerDashboard(userId: string) {
           where: { category: { not: null } },
           orderBy: { createdAt: "desc" },
         },
+        jobs: {
+          where: { managerId: userId },
+          include: {
+            tasks: {
+              orderBy: { updatedAt: "desc" },
+              select: {
+                id: true,
+                title: true,
+                status: true,
+                createdAt: true,
+                dueAt: true,
+                assignee: { select: { name: true } },
+              },
+            },
+          },
+        },
       },
       orderBy: { name: "asc" },
     }),
+    listCategories(),
   ]);
 
   const clientIds = clients.map((c) => c.id);
@@ -206,7 +242,14 @@ async function ManagerDashboard(userId: string) {
     <div className="flex flex-col gap-5">
       <PageHeader title="My clients" />
       <Section title="Client Hub">
-        <ClientHubAccordion clients={clientsWithActivity} year={year} month={month} canEdit={true} />
+        <ClientHubAccordion
+          clients={clientsWithActivity}
+          year={year}
+          month={month}
+          canEdit={true}
+          canManage={true}
+          categories={categories}
+        />
       </Section>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Section title="Overdue (mine)">
