@@ -79,6 +79,7 @@ export default async function RootLayout({
                 <NavLink href="/clients">Clients</NavLink>
               )}
               {user.role === "ADMIN" && <NavLink href="/admin/users">Users</NavLink>}
+              {user.role === "ADMIN" && <NavLink href="/admin/drive">Drive</NavLink>}
               <span className="ml-auto flex items-center gap-2 text-sm">
                 <NotificationBell />
                 <ThemeToggle />

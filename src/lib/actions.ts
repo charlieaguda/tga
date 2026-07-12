@@ -10,6 +10,8 @@ import * as clients from "@/lib/services/clients";
 import * as admin from "@/lib/services/admin";
 import * as credentials from "@/lib/services/auth-credentials";
 import * as clientFiles from "@/lib/services/client-files";
+import * as categories from "@/lib/services/categories";
+import * as driveConnection from "@/lib/services/drive-connection";
 import { createSessionForUser, destroySession } from "@/lib/auth-session";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/permissions";
@@ -147,6 +149,23 @@ export async function clientCreate(_prev: ActionResult, formData: FormData) {
   return guard(async () => {
     await clients.createClient(parsed.data);
   });
+}
+
+export async function categoryCreate(_prev: ActionResult, formData: FormData) {
+  const parsed = z
+    .object({ label: shortText, clientWritable: z.string().optional() })
+    .safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
+  return guard(async () => {
+    await categories.createCategory({
+      label: parsed.data.label,
+      clientWritable: parsed.data.clientWritable === "on",
+    });
+  });
+}
+
+export async function driveDisconnect(): Promise<ActionResult> {
+  return guard(() => driveConnection.disconnectDrive());
 }
 
 export async function clientSetNotionUrl(_prev: ActionResult, formData: FormData) {
