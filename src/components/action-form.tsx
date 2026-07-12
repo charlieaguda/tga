@@ -18,6 +18,7 @@ export function ActionForm({
   resetOnSuccess = true,
   disabled = false,
   disabledHint,
+  onSuccess,
 }: {
   action: (prev: ActionResult, formData: FormData) => Promise<ActionResult>;
   submitLabel: string;
@@ -26,6 +27,7 @@ export function ActionForm({
   resetOnSuccess?: boolean;
   disabled?: boolean;
   disabledHint?: string;
+  onSuccess?: () => void;
 }) {
   const [state, dispatch, pending] = useActionState(
     async (prev: ActionResult, formData: FormData) => action(prev, formData),
@@ -35,11 +37,12 @@ export function ActionForm({
   const submittedRef = useRef(false);
 
   useEffect(() => {
-    if (submittedRef.current && state.ok && resetOnSuccess && !pending) {
-      formRef.current?.reset();
+    if (submittedRef.current && state.ok && !pending) {
+      if (resetOnSuccess) formRef.current?.reset();
       submittedRef.current = false;
+      onSuccess?.();
     }
-  }, [state, pending, resetOnSuccess]);
+  }, [state, pending, resetOnSuccess, onSuccess]);
 
   return (
     <form

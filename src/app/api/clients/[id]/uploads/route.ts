@@ -1,6 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
-import { FileCategory } from "@prisma/client";
 import { createClientUploadSession } from "@/lib/services/client-files";
 import { errorToStatus } from "@/lib/errors";
 
@@ -8,7 +7,7 @@ const Body = z.object({
   fileName: z.string().min(1).max(255),
   sizeBytes: z.number().int().positive(),
   mimeType: z.string().min(1).max(150),
-  category: z.nativeEnum(FileCategory),
+  category: z.string().min(1).max(64),
 });
 
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {

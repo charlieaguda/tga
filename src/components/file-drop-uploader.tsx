@@ -2,7 +2,6 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { FileCategory } from "@prisma/client";
 import { uploadFileTo, validateFile } from "@/lib/upload-client";
 
 type Progress = { file: File; pct: number; error?: string };
@@ -128,7 +127,7 @@ function FileDropUploader({
   );
 }
 
-export function ClientFileUploader({ clientId, category }: { clientId: string; category: FileCategory }) {
+export function ClientFileUploader({ clientId, category }: { clientId: string; category: string }) {
   return (
     <FileDropUploader
       label="Upload files (video / image / PDF, saved to Google Drive)"
