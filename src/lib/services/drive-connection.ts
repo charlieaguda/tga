@@ -7,6 +7,8 @@ import { invalidateDriveCache } from "@/lib/drive";
 const CONNECTION_ID = "drive_connection";
 
 export async function getDriveConnection() {
+  await authorize("drive.manage");
+
   return db.driveConnection.findUnique({
     where: { id: CONNECTION_ID },
     select: { googleAccountEmail: true, createdAt: true, connectedBy: { select: { name: true } } },
