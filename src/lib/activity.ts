@@ -5,7 +5,7 @@ export type DbClient = PrismaClient | Prisma.TransactionClient;
 export type ActivityInput = {
   actorId: string | null;
   action: string; // dotted verb, e.g. "task.status_changed"
-  entityType: "task" | "job" | "client" | "submission" | "user" | "file" | "comment";
+  entityType: "task" | "job" | "client" | "submission" | "user" | "file" | "comment" | "category" | "drive_connection";
   entityId: string;
   jobId?: string;
   taskId?: string;

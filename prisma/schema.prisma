@@ -18,15 +18,6 @@ enum Role {
   CLIENT
 }
 
-enum FileCategory {
-  BRAND_GUIDELINES
-  ASSETS
-  CREATIVES
-  UNUSED_CREATIVES
-  LOGO
-  BRAND_COLORS
-}
-
 enum JobStatus {
   ACTIVE
   PAUSED
@@ -93,6 +84,7 @@ model User {
   uploadSessions    UploadSession[]
   notifications     Notification[]
   activities        ActivityLog[]
+  driveConnections  DriveConnection[]
 
   accounts Account[]
   sessions Session[]
@@ -148,16 +140,41 @@ model Client {
   categoryFolders ClientCategoryFolder[]
 }
 
+// Client-hub file categories — an open-ended, admin-managed list rather than
+// a fixed enum, so staff can add new categories without a schema migration.
+// `key` is the stable identifier stored on File/UploadSession/ClientCategoryFolder
+// rows (mirrors how those rows referenced FileCategory enum values before).
+model Category {
+  id             String   @id @default(cuid())
+  key            String   @unique
+  label          String
+  clientWritable Boolean  @default(false)
+  createdAt      DateTime @default(now())
+}
+
+// Stores the Drive OAuth connection made via /admin/drive, as a fallback
+// when no GOOGLE_SA_KEY_JSON / GOOGLE_OAUTH_REFRESH_TOKEN env var is set —
+// see src/lib/drive.ts. Fixed `id` default enforces "at most one row"
+// without extra service-layer logic; connecting always upserts this row.
+model DriveConnection {
+  id                    String   @id @default("drive_connection")
+  googleAccountEmail    String
+  encryptedRefreshToken String
+  connectedById         String
+  connectedBy           User     @relation(fields: [connectedById], references: [id])
+  createdAt             DateTime @default(now())
+}
+
 // Drive folder ID cache for a (client, category) pair — mirrors the existing
 // convention of caching a folder ID on the owning row (Client/Job/Task/Submission
 // each do), but a (client, category) pair has no single owning row of its own.
 model ClientCategoryFolder {
-  id            String       @id @default(cuid())
+  id            String   @id @default(cuid())
   clientId      String
-  client        Client       @relation(fields: [clientId], references: [id])
-  category      FileCategory
+  client        Client   @relation(fields: [clientId], references: [id])
+  category      String
   driveFolderId String
-  createdAt     DateTime     @default(now())
+  createdAt     DateTime @default(now())
 
   @@unique([clientId, category])
 }
@@ -261,7 +278,7 @@ model File {
   task         Task?         @relation(fields: [taskId], references: [id])
   clientId     String?
   client       Client?       @relation(fields: [clientId], references: [id])
-  category     FileCategory? // set only when clientId is set (client-hub uploads)
+  category     String?       // Category.key; set only when clientId is set (client-hub uploads)
   driveFileId  String        @unique
   fileName     String
   storedName   String
@@ -289,7 +306,7 @@ model UploadSession {
   task         Task?         @relation(fields: [taskId], references: [id])
   clientId     String?
   client       Client?       @relation(fields: [clientId], references: [id])
-  category     FileCategory?
+  category     String?       // Category.key
   editorId     String
   editor       User          @relation(fields: [editorId], references: [id])
   fileName     String
