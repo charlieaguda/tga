@@ -7,7 +7,6 @@ import { auth } from "@/auth";
 import { logout } from "@/lib/actions";
 import { NotificationBell } from "@/components/notification-bell";
 import { NavLink } from "@/components/nav-links";
-import { ThemeToggle } from "@/components/theme-toggle";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -43,15 +42,9 @@ export default async function RootLayout({
           dangerouslySetInnerHTML={{
             __html: `
               try {
-                const theme = localStorage.getItem('theme') || 'system';
-                const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-                if (isDark) {
-                  document.documentElement.classList.add('dark');
-                  document.documentElement.classList.remove('light');
-                } else {
-                  document.documentElement.classList.add('light');
-                  document.documentElement.classList.remove('dark');
-                }
+                localStorage.setItem('theme', 'light');
+                document.documentElement.classList.add('light');
+                document.documentElement.classList.remove('dark');
               } catch (_) {}
             `,
           }}
@@ -68,16 +61,7 @@ export default async function RootLayout({
                   width={144}
                   height={36}
                   priority
-                  className="h-9 w-auto dark:hidden"
-                  style={{ height: "auto" }}
-                />
-                <Image
-                  src="/logo-dark.webp"
-                  alt="The Growth Academy"
-                  width={144}
-                  height={36}
-                  priority
-                  className="hidden h-9 w-auto dark:block"
+                  className="h-9 w-auto"
                   style={{ height: "auto" }}
                 />
               </Link>
@@ -91,7 +75,6 @@ export default async function RootLayout({
               {user.role === "ADMIN" && <NavLink href="/admin/drive">Drive</NavLink>}
               <span className="ml-auto flex items-center gap-2 text-sm">
                 <NotificationBell />
-                <ThemeToggle />
                 <Link
                   href="/account"
                   className="text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100 transition-colors"
