@@ -1,7 +1,6 @@
 import { auth } from "@/auth";
-import type { FileCategory, Role } from "@prisma/client";
+import type { Role } from "@prisma/client";
 import { ForbiddenError, UnauthorizedError } from "@/lib/errors";
-import { CLIENT_WRITABLE_CATEGORIES } from "@/lib/file-categories";
 
 export type SessionUser = {
   id: string;
@@ -16,7 +15,8 @@ export type SessionUser = {
 export type JobResource = { managerId: string };
 export type TaskResource = { assigneeId: string | null; job: JobResource };
 export type ClientResource = { id: string };
-export type ClientFileResource = { client: ClientResource; category: FileCategory };
+export type CategoryResource = { key: string; clientWritable: boolean };
+export type ClientFileResource = { client: ClientResource; category: CategoryResource };
 
 export type Action =
   | "user.manage"
@@ -25,6 +25,7 @@ export type Action =
   | "client.read"
   | "client.file.read"
   | "client.file.upload"
+  | "category.write"
   | "job.create"
   | "job.write"
   | "task.create"
@@ -37,7 +38,8 @@ export type Action =
   | "review.decide"
   | "comment.create"
   | "dashboard.viewAll"
-  | "auditlog.read";
+  | "auditlog.read"
+  | "drive.manage";
 
 const managesJob = (u: SessionUser, job: JobResource) =>
   u.role === "ADMIN" || (u.role === "MANAGER" && job.managerId === u.id);
@@ -60,13 +62,14 @@ const canReadClient = (u: SessionUser, client: ClientResource) =>
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const policy: Record<Action, (u: SessionUser, resource?: any) => boolean> = {
   "user.manage": (u) => u.role === "ADMIN",
-  "client.write": (u) => u.role === "ADMIN" || u.role === "MANAGER",
+  "client.write": (u) => u.role !== "CLIENT",
   "client.deactivate": (u) => u.role === "ADMIN",
   "client.read": (u, client: ClientResource) => canReadClient(u, client),
   "client.file.read": (u, resource: ClientFileResource) => canReadClient(u, resource.client),
   "client.file.upload": (u, resource: ClientFileResource) =>
     u.role === "ADMIN" || u.role === "CEO" || u.role === "MANAGER" ||
-    (isOwnClient(u, resource.client) && CLIENT_WRITABLE_CATEGORIES.has(resource.category)),
+    (isOwnClient(u, resource.client) && resource.category.clientWritable),
+  "category.write": (u) => u.role !== "CLIENT",
   "job.create": (u) => u.role === "ADMIN" || u.role === "MANAGER",
   "job.write": (u, job: JobResource) => managesJob(u, job),
   "task.create": (u, job: JobResource) => u.role === "CEO" || managesJob(u, job),
@@ -80,6 +83,7 @@ const policy: Record<Action, (u: SessionUser, resource?: any) => boolean> = {
   "comment.create": (u, task: TaskResource) => isInternalReader(u) || isAssignee(u, task),
   "dashboard.viewAll": (u) => u.role !== "EDITOR" && u.role !== "CLIENT",
   "auditlog.read": (u) => u.role === "ADMIN" || u.role === "CEO",
+  "drive.manage": (u) => u.role === "ADMIN",
 };
 
 export async function requireUser(): Promise<SessionUser> {
