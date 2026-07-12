@@ -85,7 +85,7 @@ export async function createUploadSession(
   taskId: string,
   input: { fileName: string; sizeBytes: number; mimeType: string },
 ) {
-  if (!isDriveConfigured())
+  if (!(await isDriveConfigured()))
     throw new ValidationError("Google Drive is not configured yet — ask an admin");
   assertValidUploadDeclaration(input);
 
@@ -232,7 +232,7 @@ export async function reconcileUploads() {
 
   let relinked = 0;
   let missing = 0;
-  if (isDriveConfigured()) {
+  if (await isDriveConfigured()) {
     // 2. Re-link finished uploads whose browser died before calling complete.
     //    Same status guards as the normal path — never inject into closed rounds.
     //    Scoped to deliverable (submissionId-set) sessions; task-attachment and
@@ -297,7 +297,7 @@ export async function createTaskAttachmentUploadSession(
   taskId: string,
   input: { fileName: string; sizeBytes: number; mimeType: string },
 ) {
-  if (!isDriveConfigured())
+  if (!(await isDriveConfigured()))
     throw new ValidationError("Google Drive is not configured yet — ask an admin");
   assertValidUploadDeclaration(input);
 

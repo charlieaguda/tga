@@ -1,15 +1,16 @@
 import { notFound, redirect } from "next/navigation";
-import { FileCategory } from "@prisma/client";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { clientOffboard, clientSetNotionUrl } from "@/lib/actions";
+import { listCategories } from "@/lib/services/categories";
 import { ActionButton } from "@/components/action-button";
 import { ActionForm } from "@/components/action-form";
+import { AddCategoryButton } from "@/components/add-category-button";
 import { ClientFileUploader } from "@/components/file-drop-uploader";
 import { MonthCalendar } from "@/components/month-calendar";
-import { CATEGORY_LABELS, CLIENT_WRITABLE_CATEGORIES, FILE_CATEGORIES } from "@/lib/file-categories";
 import { isDriveConfigured } from "@/lib/drive";
 import { fmtDate } from "@/lib/format";
+import { buildTaskDaysMap } from "@/lib/task-calendar";
 import { Section } from "@/components/ui";
 import { ClientFileItem } from "@/components/client-file-item";
 
@@ -40,18 +41,19 @@ export default async function ClientHubDetailPage(props: {
   if (!client) notFound();
 
   const canManage = user.role === "ADMIN" || user.role === "CEO" || user.role === "MANAGER";
-  const canUploadCategory = (category: FileCategory) =>
-    canManage || (user.role === "CLIENT" && CLIENT_WRITABLE_CATEGORIES.has(category));
+  const canUploadCategory = (category: { clientWritable: boolean }) =>
+    canManage || (user.role === "CLIENT" && category.clientWritable);
 
+  const categories = await listCategories();
   const files = await db.file.findMany({
     where: { clientId: id, category: { not: null } },
     orderBy: { createdAt: "desc" },
   });
-  const filesByCategory = new Map<FileCategory, typeof files>();
-  for (const category of FILE_CATEGORIES) {
+  const filesByCategory = new Map<string, typeof files>();
+  for (const category of categories) {
     filesByCategory.set(
-      category,
-      files.filter((f) => f.category === category),
+      category.key,
+      files.filter((f) => f.category === category.key),
     );
   }
 
@@ -68,6 +70,21 @@ export default async function ClientHubDetailPage(props: {
     select: { createdAt: true },
   });
   const activeDays = new Set(uploads.map((u) => u.createdAt.toISOString().slice(0, 10)));
+
+  const monthTasks = canManage
+    ? await db.task.findMany({
+        where: {
+          job: { clientId: id },
+          OR: [
+            { createdAt: { gte: monthStart, lt: monthEnd } },
+            { dueAt: { gte: monthStart, lt: monthEnd } },
+          ],
+        },
+        select: { id: true, title: true, status: true, createdAt: true, dueAt: true },
+      })
+    : [];
+  const taskDays = canManage ? buildTaskDaysMap(monthTasks) : undefined;
+  const driveConfigured = await isDriveConfigured();
 
   return (
     <div className="flex flex-col gap-4">
@@ -92,7 +109,7 @@ export default async function ClientHubDetailPage(props: {
         )}
       </div>
 
-      {!isDriveConfigured() && (
+      {!driveConfigured && (
         <p className="text-sm text-amber-600 dark:text-amber-400">
           Google Drive isn&apos;t configured yet (GOOGLE_SA_KEY_JSON / DRIVE_SHARED_DRIVE_ID) —
           file uploads are disabled.
@@ -138,24 +155,30 @@ export default async function ClientHubDetailPage(props: {
         )}
       </Section>
 
-      {FILE_CATEGORIES.map((category) => (
-        <Section key={category} title={CATEGORY_LABELS[category]}>
-          {(filesByCategory.get(category)?.length ?? 0) === 0 ? (
+      {categories.map((category) => (
+        <Section key={category.key} title={category.label}>
+          {(filesByCategory.get(category.key)?.length ?? 0) === 0 ? (
             <p className="text-sm text-slate-400 dark:text-slate-500">No files yet.</p>
           ) : (
             <ul className="flex flex-col gap-1 text-sm">
-              {filesByCategory.get(category)!.map((f) => (
+              {filesByCategory.get(category.key)!.map((f) => (
                 <ClientFileItem key={f.id} file={f} canEdit={canEdit} />
               ))}
             </ul>
           )}
-          {canUploadCategory(category) && isDriveConfigured() && !client.offboardedAt && (
+          {canUploadCategory(category) && driveConfigured && !client.offboardedAt && (
             <div className="mt-3">
-              <ClientFileUploader clientId={client.id} category={category} />
+              <ClientFileUploader clientId={client.id} category={category.key} />
             </div>
           )}
         </Section>
       ))}
+
+      {user.role !== "CLIENT" && (
+        <div className="px-1">
+          <AddCategoryButton />
+        </div>
+      )}
 
       <Section title="Upload activity">
         <MonthCalendar
@@ -163,6 +186,7 @@ export default async function ClientHubDetailPage(props: {
           month={month}
           activeDays={activeDays}
           baseHref={`/client-hub/${client.id}`}
+          taskDays={taskDays}
         />
       </Section>
     </div>

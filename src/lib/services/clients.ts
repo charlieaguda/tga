@@ -3,14 +3,22 @@ import { authorize } from "@/lib/permissions";
 import { logActivity } from "@/lib/activity";
 import { ConflictError, ValidationError } from "@/lib/errors";
 import { ensureFolder, isDriveConfigured, moveFolder, sharedDriveRootId } from "@/lib/drive";
+import { slugify } from "@/lib/slug";
 
 export async function createClient(input: { name: string; notes?: string }) {
   const actor = await authorize("client.write");
   const name = input.name.trim();
   if (!name) throw new ValidationError("Client name is required");
 
+  // Eagerly create the Drive folder so a hub is Drive-connected from the
+  // start, rather than waiting for the first client-hub upload to create it
+  // (see ensureClientCategoryFolder in client-files.ts for the lazy path).
+  const driveFolderId = (await isDriveConfigured())
+    ? await ensureFolder(await ensureFolder(sharedDriveRootId(), "Clients"), slugify(name))
+    : null;
+
   return db.$transaction(async (tx) => {
-    const client = await tx.client.create({ data: { name, notes: input.notes?.trim() } });
+    const client = await tx.client.create({ data: { name, notes: input.notes?.trim(), driveFolderId } });
     await logActivity(tx, {
       actorId: actor.id,
       action: "client.created",
@@ -77,7 +85,7 @@ export async function offboardClient(clientId: string) {
   const actor = await authorize("client.deactivate");
   await assertNoOpenJobs(clientId);
 
-  if (isDriveConfigured() && client.driveFolderId) {
+  if ((await isDriveConfigured()) && client.driveFolderId) {
     const clientsRoot = await ensureFolder(sharedDriveRootId(), "Clients");
     const archiveRoot = await ensureFolder(sharedDriveRootId(), "Archive");
     await moveFolder(client.driveFolderId, clientsRoot, archiveRoot);

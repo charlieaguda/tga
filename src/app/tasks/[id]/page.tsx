@@ -169,7 +169,7 @@ export default async function TaskPage(props: { params: Promise<{ id: string }> 
             ))}
           </ul>
         )}
-        {canAttach && isDriveConfigured() && (
+        {canAttach && (await isDriveConfigured()) && (
           <div className="mt-3">
             <TaskAttachmentUploader taskId={task.id} />
           </div>
@@ -266,7 +266,7 @@ export default async function TaskPage(props: { params: Promise<{ id: string }> 
         {/* Editor: upload + submit controls on the open round */}
         {isAssignee && task.status === "IN_PROGRESS" && (
           <div className="mt-4 flex flex-col gap-3">
-            {isDriveConfigured() ? (
+            {(await isDriveConfigured()) ? (
               <Uploader taskId={task.id} initialFileCount={openSubmission?.files.length ?? 0} />
             ) : (
               <>

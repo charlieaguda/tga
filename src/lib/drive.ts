@@ -14,6 +14,8 @@
  *   or a plain folder in someone's My Drive (personal account, dev/testing).
  */
 import { google, type drive_v3 } from "googleapis";
+import { db } from "@/lib/db";
+import { decryptSecret } from "@/lib/credential-crypto";
 
 type DriveAuthClient = InstanceType<typeof google.auth.JWT> | InstanceType<typeof google.auth.OAuth2>;
 
@@ -28,12 +30,35 @@ const SHARED_DRIVE_ID = () => {
 
 let cached: { drive: drive_v3.Drive; auth: DriveAuthClient } | null = null;
 
-function getDrive() {
+/** Called by drive-connection.ts after connect/disconnect so the next Drive call picks up the change. */
+export function invalidateDriveCache(): void {
+  cached = null;
+}
+
+async function resolveOAuthRefreshToken(): Promise<string | null> {
+  if (process.env.GOOGLE_OAUTH_REFRESH_TOKEN) return process.env.GOOGLE_OAUTH_REFRESH_TOKEN;
+  const conn = await db.driveConnection.findUnique({ where: { id: "drive_connection" } });
+  return conn ? decryptSecret(conn.encryptedRefreshToken) : null;
+}
+
+async function getDrive() {
   if (cached) return cached;
 
-  const refreshToken = process.env.GOOGLE_OAUTH_REFRESH_TOKEN;
+  const raw = process.env.GOOGLE_SA_KEY_JSON;
   let auth: DriveAuthClient;
-  if (refreshToken) {
+  if (raw) {
+    const key = JSON.parse(Buffer.from(raw, "base64").toString("utf8"));
+    auth = new google.auth.JWT({
+      email: key.client_email,
+      key: key.private_key,
+      scopes: ["https://www.googleapis.com/auth/drive"],
+    });
+  } else {
+    const refreshToken = await resolveOAuthRefreshToken();
+    if (!refreshToken)
+      throw new Error(
+        "Google Drive is not configured — set GOOGLE_SA_KEY_JSON, GOOGLE_OAUTH_REFRESH_TOKEN, or connect via /admin/drive",
+      );
     const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID;
     const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET;
     if (!clientId || !clientSecret)
@@ -41,16 +66,6 @@ function getDrive() {
     const client = new google.auth.OAuth2(clientId, clientSecret);
     client.setCredentials({ refresh_token: refreshToken });
     auth = client;
-  } else {
-    const raw = process.env.GOOGLE_SA_KEY_JSON;
-    if (!raw)
-      throw new Error("Neither GOOGLE_SA_KEY_JSON nor GOOGLE_OAUTH_REFRESH_TOKEN is configured");
-    const key = JSON.parse(Buffer.from(raw, "base64").toString("utf8"));
-    auth = new google.auth.JWT({
-      email: key.client_email,
-      key: key.private_key,
-      scopes: ["https://www.googleapis.com/auth/drive"],
-    });
   }
   cached = { drive: google.drive({ version: "v3", auth }), auth };
   return cached;
@@ -131,7 +146,7 @@ function escapeQuery(value: string): string {
  * crash-after-create case by listing before creating). Returns the folder ID.
  */
 export async function ensureFolder(parentId: string, name: string): Promise<string> {
-  const { drive } = getDrive();
+  const { drive } = await getDrive();
   // No driveId/corpora here: the query is already scoped by parentId, which
   // works identically whether that parent lives in a Shared Drive or a
   // regular My Drive folder. supportsAllDrives/includeItemsFromAllDrives are
@@ -168,7 +183,7 @@ export async function moveFolder(
   fromParentId: string,
   toParentId: string,
 ): Promise<void> {
-  const { drive } = getDrive();
+  const { drive } = await getDrive();
   await withBackoff(() =>
     drive.files.update({
       fileId: folderId,
@@ -192,7 +207,7 @@ export type DriveFileInfo = {
 };
 
 export async function getFileInfo(fileId: string): Promise<DriveFileInfo | null> {
-  const { drive } = getDrive();
+  const { drive } = await getDrive();
   try {
     const res = await withBackoff(() =>
       drive.files.get({
@@ -228,7 +243,7 @@ export async function createResumableSession(input: {
   sizeBytes: number;
   appProperties: Record<string, string>;
 }): Promise<string> {
-  const { auth } = getDrive();
+  const { auth } = await getDrive();
   const { token } = await auth.getAccessToken();
   if (!token) throw new Error("Failed to obtain Drive access token");
 
@@ -271,7 +286,7 @@ export async function createResumableSession(input: {
 
 /** Find a file by an appProperties entry (used by reconciliation to re-link orphans). */
 export async function findFileByAppProperty(key: string, value: string): Promise<string | null> {
-  const { drive } = getDrive();
+  const { drive } = await getDrive();
   const res = await withBackoff(() =>
     drive.files.list({
       q: `appProperties has { key='${escapeQuery(key)}' and value='${escapeQuery(value)}' } and trashed = false`,
@@ -289,7 +304,9 @@ export function driveViewLink(driveFileId: string): string {
   return `https://drive.google.com/file/d/${encodeURIComponent(driveFileId)}/view`;
 }
 
-export function isDriveConfigured(): boolean {
-  const hasCredential = !!process.env.GOOGLE_SA_KEY_JSON || !!process.env.GOOGLE_OAUTH_REFRESH_TOKEN;
-  return hasCredential && !!process.env.DRIVE_SHARED_DRIVE_ID;
+export async function isDriveConfigured(): Promise<boolean> {
+  if (!process.env.DRIVE_SHARED_DRIVE_ID) return false;
+  if (process.env.GOOGLE_SA_KEY_JSON || process.env.GOOGLE_OAUTH_REFRESH_TOKEN) return true;
+  const conn = await db.driveConnection.findUnique({ where: { id: "drive_connection" }, select: { id: true } });
+  return conn !== null;
 }
