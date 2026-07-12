@@ -36,7 +36,11 @@ export async function GET() {
 
   const url = client.generateAuthUrl({
     access_type: "offline",
-    prompt: "consent",
+    // select_account forces Google's account chooser even when the browser
+    // has only one active session — without it, Google silently reuses
+    // whatever account is already signed in instead of letting the admin
+    // pick a different one (e.g. a Workspace account vs. a personal Gmail).
+    prompt: "select_account consent",
     scope: ["https://www.googleapis.com/auth/drive", "https://www.googleapis.com/auth/userinfo.email"],
     state,
   });
