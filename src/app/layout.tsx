@@ -63,12 +63,21 @@ export default async function RootLayout({
             <nav className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-1.5 gap-y-2 px-4 py-3">
               <Link href="/dashboard" className="mr-3 flex items-center gap-2">
                 <Image
-                  src="/logo.webp"
+                  src="/logo-light.webp"
                   alt="The Growth Academy"
                   width={144}
                   height={36}
                   priority
-                  className="h-9 w-auto rounded-md bg-white p-0.5 shadow-sm"
+                  className="h-9 w-auto dark:hidden"
+                  style={{ height: "auto" }}
+                />
+                <Image
+                  src="/logo-dark.webp"
+                  alt="The Growth Academy"
+                  width={144}
+                  height={36}
+                  priority
+                  className="hidden h-9 w-auto dark:block"
                   style={{ height: "auto" }}
                 />
               </Link>

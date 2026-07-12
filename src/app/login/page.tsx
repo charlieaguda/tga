@@ -16,12 +16,21 @@ export default async function LoginPage() {
           <ThemeToggle />
         </div>
         <Image
-          src="/logo.webp"
+          src="/logo-light.webp"
           alt="The Growth Academy"
           width={224}
           height={56}
           priority
-          className="mx-auto h-14 w-auto"
+          className="mx-auto h-14 w-auto dark:hidden"
+          style={{ height: "auto" }}
+        />
+        <Image
+          src="/logo-dark.webp"
+          alt="The Growth Academy"
+          width={224}
+          height={56}
+          priority
+          className="mx-auto hidden h-14 w-auto dark:block"
           style={{ height: "auto" }}
         />
         <p className="mt-4 text-center text-sm text-slate-500 dark:text-slate-400">
