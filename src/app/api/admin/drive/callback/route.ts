@@ -49,7 +49,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.redirect(new URL("/admin/drive?connected=1", base));
   } catch (err) {
-    console.error("[drive-callback] failed:", err);
+    console.error("[drive-callback] failed:", err instanceof Error ? err.message : String(err));
     return NextResponse.redirect(new URL("/admin/drive?error=callback_failed", base));
   }
 }
