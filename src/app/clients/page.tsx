@@ -153,7 +153,12 @@ export default async function ClientsPage() {
       </Section>
 
       <Section title="Add client">
-        <ActionForm action={clientCreate} submitLabel="Add client" className="flex max-w-md flex-col gap-2">
+        <ActionForm
+          action={clientCreate}
+          submitLabel="Add client"
+          className="flex max-w-md flex-col gap-2"
+          successMessage="Client added"
+        >
           <input name="name" required placeholder="Client name" className={inputCls} />
           <textarea
             name="notes"
