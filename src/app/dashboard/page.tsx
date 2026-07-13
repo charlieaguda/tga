@@ -177,11 +177,7 @@ async function ManagerDashboard(userId: string) {
     db.client.findMany({
       where: {
         isActive: true,
-        jobs: {
-          some: {
-            managerId: userId,
-          },
-        },
+        OR: [{ jobs: { some: { managerId: userId } } }, { defaultManagerId: userId }],
       },
       include: {
         files: {

@@ -1,7 +1,7 @@
 import { db } from "@/lib/db";
-import { authorize } from "@/lib/permissions";
+import { authorize, requireUser } from "@/lib/permissions";
 import { logActivity } from "@/lib/activity";
-import { ConflictError, ValidationError } from "@/lib/errors";
+import { ConflictError, ForbiddenError, ValidationError } from "@/lib/errors";
 import { ensureFolder, isDriveConfigured, moveFolder, sharedDriveRootId } from "@/lib/drive";
 import { slugify } from "@/lib/slug";
 
@@ -18,7 +18,14 @@ export async function createClient(input: { name: string; notes?: string }) {
     : null;
 
   return db.$transaction(async (tx) => {
-    const client = await tx.client.create({ data: { name, notes: input.notes?.trim(), driveFolderId } });
+    const client = await tx.client.create({
+      data: {
+        name,
+        notes: input.notes?.trim(),
+        driveFolderId,
+        defaultManagerId: actor.role === "MANAGER" ? actor.id : undefined,
+      },
+    });
     await logActivity(tx, {
       actorId: actor.id,
       action: "client.created",
@@ -74,40 +81,53 @@ export async function setClientNotionUrl(clientId: string, notionUrl: string | n
   });
 }
 
-export async function setClientDefaults(
-  clientId: string,
-  input: { defaultManagerId: string | null; defaultEditorId: string | null },
-) {
+export async function setClientDefaultManager(clientId: string, defaultManagerId: string | null) {
   const client = await db.client.findUnique({ where: { id: clientId } });
   if (!client) throw new ValidationError("Client not found");
   const actor = await authorize("client.assignDefaults");
 
-  if (input.defaultManagerId) {
-    const manager = await db.user.findUnique({ where: { id: input.defaultManagerId } });
+  if (defaultManagerId) {
+    const manager = await db.user.findUnique({ where: { id: defaultManagerId } });
     if (!manager?.isActive || (manager.role !== "MANAGER" && manager.role !== "ADMIN"))
       throw new ValidationError("Default manager must be an active manager");
   }
-  if (input.defaultEditorId) {
-    const editor = await db.user.findUnique({ where: { id: input.defaultEditorId } });
+
+  await db.$transaction(async (tx) => {
+    await tx.client.update({ where: { id: clientId }, data: { defaultManagerId } });
+    await logActivity(tx, {
+      actorId: actor.id,
+      action: "client.default_manager_changed",
+      entityType: "client",
+      entityId: clientId,
+      clientId,
+      meta: { from: client.defaultManagerId, to: defaultManagerId },
+    });
+  });
+}
+
+/** ADMIN can set any client's default editor; a MANAGER only for a client they already default-manage. */
+export async function setClientDefaultEditor(clientId: string, defaultEditorId: string | null) {
+  const client = await db.client.findUnique({ where: { id: clientId } });
+  if (!client) throw new ValidationError("Client not found");
+  const actor = await requireUser();
+  if (actor.role !== "ADMIN" && !(actor.role === "MANAGER" && client.defaultManagerId === actor.id))
+    throw new ForbiddenError();
+
+  if (defaultEditorId) {
+    const editor = await db.user.findUnique({ where: { id: defaultEditorId } });
     if (!editor?.isActive || editor.role !== "EDITOR")
       throw new ValidationError("Default editor must be an active editor");
   }
 
   await db.$transaction(async (tx) => {
-    await tx.client.update({
-      where: { id: clientId },
-      data: {
-        defaultManagerId: input.defaultManagerId,
-        defaultEditorId: input.defaultEditorId,
-      },
-    });
+    await tx.client.update({ where: { id: clientId }, data: { defaultEditorId } });
     await logActivity(tx, {
       actorId: actor.id,
-      action: "client.defaults_changed",
+      action: "client.default_editor_changed",
       entityType: "client",
       entityId: clientId,
       clientId,
-      meta: { defaultManagerId: input.defaultManagerId, defaultEditorId: input.defaultEditorId },
+      meta: { from: client.defaultEditorId, to: defaultEditorId },
     });
   });
 }
