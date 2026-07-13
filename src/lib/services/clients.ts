@@ -7,10 +7,33 @@ import { slugify } from "@/lib/slug";
 import { listCategories } from "@/lib/services/categories";
 import { ensureClientCategoryFolder } from "@/lib/services/client-files";
 
-export async function createClient(input: { name: string; notes?: string }) {
+export async function createClient(input: {
+  name: string;
+  notes?: string;
+  defaultManagerId?: string;
+  defaultEditorId?: string;
+}) {
   const actor = await authorize("client.write");
   const name = input.name.trim();
   if (!name) throw new ValidationError("Client name is required");
+
+  let defaultManagerId: string | undefined;
+  if (actor.role === "MANAGER") {
+    defaultManagerId = actor.id;
+  } else if (actor.role === "ADMIN" && input.defaultManagerId) {
+    const manager = await db.user.findUnique({ where: { id: input.defaultManagerId } });
+    if (!manager?.isActive || (manager.role !== "MANAGER" && manager.role !== "ADMIN"))
+      throw new ValidationError("Default manager must be an active manager");
+    defaultManagerId = input.defaultManagerId;
+  }
+
+  let defaultEditorId: string | undefined;
+  if (input.defaultEditorId) {
+    const editor = await db.user.findUnique({ where: { id: input.defaultEditorId } });
+    if (!editor?.isActive || editor.role !== "EDITOR")
+      throw new ValidationError("Default editor must be an active editor");
+    defaultEditorId = input.defaultEditorId;
+  }
 
   // Eagerly create the Drive folder so a hub is Drive-connected from the
   // start, rather than waiting for the first client-hub upload to create it
@@ -25,7 +48,8 @@ export async function createClient(input: { name: string; notes?: string }) {
         name,
         notes: input.notes?.trim(),
         driveFolderId,
-        defaultManagerId: actor.role === "MANAGER" ? actor.id : undefined,
+        defaultManagerId,
+        defaultEditorId,
       },
     });
     await logActivity(tx, {
@@ -40,12 +64,19 @@ export async function createClient(input: { name: string; notes?: string }) {
 
   // Eagerly create every category's Drive subfolder too, so a fresh client's
   // Drive folder mirrors the app's category list from the start instead of
-  // filling in one-by-one as each category gets its first upload.
+  // filling in one-by-one as each category gets its first upload. Failures
+  // are logged and swallowed rather than failing client creation — the lazy
+  // path in ensureClientCategoryFolder backfills any missing folder on that
+  // category's first upload.
   if (driveFolderId) {
     const categories = await listCategories();
-    for (const category of categories) {
-      await ensureClientCategoryFolder(client, category);
-    }
+    await Promise.all(
+      categories.map((category) =>
+        ensureClientCategoryFolder(client, category).catch((err) =>
+          console.error("[client] failed to eagerly create category folder:", category.key, err),
+        ),
+      ),
+    );
   }
 
   return client;

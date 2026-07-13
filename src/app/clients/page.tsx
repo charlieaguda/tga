@@ -1,9 +1,10 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
-import { clientCreate, clientSetActive, clientSetDefaultManager, clientSetDefaultEditor } from "@/lib/actions";
+import { clientSetActive, clientSetDefaultManager, clientSetDefaultEditor } from "@/lib/actions";
 import { ActionButton } from "@/components/action-button";
 import { ActionForm } from "@/components/action-form";
+import { AddClientModal } from "@/components/add-client-modal";
 import { PageHeader, Section, EmptyState } from "@/components/ui";
 
 const inputCls =
@@ -36,7 +37,16 @@ export default async function ClientsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title="Clients" />
+      <PageHeader
+        title="Clients"
+        actions={
+          <AddClientModal
+            isAdmin={user.role === "ADMIN"}
+            managers={managers}
+            editors={editors}
+          />
+        }
+      />
 
       <Section title={`All clients (${clients.length})`}>
         {clients.length === 0 ? (
@@ -150,23 +160,6 @@ export default async function ClientsPage() {
             </table>
           </div>
         )}
-      </Section>
-
-      <Section title="Add client">
-        <ActionForm
-          action={clientCreate}
-          submitLabel="Add client"
-          className="flex max-w-md flex-col gap-2"
-          successMessage="Client added"
-        >
-          <input name="name" required placeholder="Client name" className={inputCls} />
-          <textarea
-            name="notes"
-            rows={2}
-            placeholder="Notes: handles, brand guidelines links… (optional)"
-            className={inputCls}
-          />
-        </ActionForm>
       </Section>
     </div>
   );

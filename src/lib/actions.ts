@@ -143,11 +143,20 @@ export async function adminReassignJob(_prev: ActionResult, formData: FormData) 
 
 export async function clientCreate(_prev: ActionResult, formData: FormData) {
   const parsed = z
-    .object({ name: shortText, notes: longText.optional() })
+    .object({
+      name: shortText,
+      notes: longText.optional(),
+      defaultManagerId: z.string().trim().optional(),
+      defaultEditorId: z.string().trim().optional(),
+    })
     .safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
   return guard(async () => {
-    await clients.createClient(parsed.data);
+    await clients.createClient({
+      ...parsed.data,
+      defaultManagerId: parsed.data.defaultManagerId || undefined,
+      defaultEditorId: parsed.data.defaultEditorId || undefined,
+    });
   });
 }
 
