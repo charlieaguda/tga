@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { db } from "@/lib/db";
-import { authorize } from "@/lib/permissions";
+import { authorize, requireUser } from "@/lib/permissions";
 import { fetchFileContent } from "@/lib/drive";
+import { resolveEditorHasTask } from "@/lib/services/client-files";
 import { ValidationError, errorToStatus } from "@/lib/errors";
 
 export async function GET(_req: NextRequest, ctx: { params: Promise<{ fileId: string }> }) {
@@ -9,7 +10,9 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ fileId: st
     const { fileId } = await ctx.params;
     const file = await db.file.findUnique({ where: { id: fileId } });
     if (!file || !file.clientId) throw new ValidationError("File not found");
-    await authorize("client.file.read", { client: { id: file.clientId } });
+    const user = await requireUser();
+    const editorHasTask = await resolveEditorHasTask(user, file.clientId);
+    await authorize("client.file.read", { client: { id: file.clientId }, editorHasTask });
 
     const content = await fetchFileContent(file.driveFileId);
     return new NextResponse(content.body, {

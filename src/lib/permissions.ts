@@ -70,7 +70,8 @@ const policy: Record<Action, (u: SessionUser, resource?: any) => boolean> = {
   "client.write": (u) => u.role !== "CLIENT",
   "client.deactivate": (u) => u.role === "ADMIN",
   "client.read": (u, client: ClientResource) => canReadClient(u, client),
-  "client.file.read": (u, resource: ClientFileResource) => canReadClient(u, resource.client),
+  "client.file.read": (u, resource: ClientFileResource) =>
+    canReadClient(u, resource.client) || (u.role === "EDITOR" && resource.editorHasTask === true),
   "client.file.upload": (u, resource: ClientFileResource) =>
     u.role === "ADMIN" || u.role === "CEO" || u.role === "MANAGER" ||
     (u.role === "EDITOR" && resource.editorHasTask === true) ||

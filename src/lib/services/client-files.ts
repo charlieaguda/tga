@@ -53,7 +53,7 @@ export async function ensureClientCategoryFolder(client: Client, category: Categ
   return categoryFolder;
 }
 
-async function resolveEditorHasTask(user: SessionUser, clientId: string): Promise<boolean | undefined> {
+export async function resolveEditorHasTask(user: SessionUser, clientId: string): Promise<boolean | undefined> {
   if (user.role !== "EDITOR") return undefined;
   return (await db.task.count({ where: { assigneeId: user.id, job: { clientId } } })) > 0;
 }
