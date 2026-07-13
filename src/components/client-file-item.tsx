@@ -121,60 +121,66 @@ export function ClientFileItem({
             name={file.storedName}
             sizeBytes={file.sizeBytes}
             description={isEditing ? null : description}
-            extra={
-              <div className="flex items-center gap-1">
-                {canEdit && (
-                  <button
-                    type="button"
-                    onClick={() => setIsEditing(!isEditing)}
-                    className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-300 transition-colors"
-                    title="Edit description"
-                  >
-                    <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                    </svg>
-                  </button>
-                )}
-                {canModify && otherCategories.length > 0 && (
-                  <select
-                    value=""
-                    disabled={pending}
-                    onChange={(e) => {
-                      if (e.target.value) handleMove(e.target.value);
-                    }}
-                    title="Move to another category"
-                    className="rounded-lg border border-slate-200/80 bg-white/50 px-1.5 py-1 text-[10px] dark:border-slate-800/80 dark:bg-slate-900/50"
-                  >
-                    <option value="">Move to…</option>
-                    {otherCategories.map((c) => (
-                      <option key={c.key} value={c.key}>
-                        {c.label}
-                      </option>
-                    ))}
-                  </select>
-                )}
-                {canModify && (
-                  <button
-                    type="button"
-                    onClick={handleDelete}
-                    disabled={pending}
-                    className="rounded-lg p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:text-slate-500 dark:hover:bg-red-950/40 dark:hover:text-red-400 transition-colors"
-                    title="Delete file"
-                  >
-                    <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M6 7h12M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3m2 0v13a1 1 0 01-1 1H8a1 1 0 01-1-1V7h10Z"
-                      />
-                    </svg>
-                  </button>
-                )}
-              </div>
-            }
           />
         </div>
       </div>
+      {(canEdit || canModify) && (
+        <div className="flex flex-wrap items-center gap-1.5 pl-12">
+          {canEdit && (
+            <button
+              type="button"
+              onClick={() => setIsEditing(!isEditing)}
+              className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-300 transition-colors"
+              title="Edit description"
+            >
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+              </svg>
+            </button>
+          )}
+          {canModify && otherCategories.length > 0 && (
+            <div className="relative inline-flex h-6 w-6 shrink-0" title="Move to another category">
+              <select
+                value=""
+                disabled={pending}
+                onChange={(e) => {
+                  if (e.target.value) handleMove(e.target.value);
+                }}
+                className="peer absolute inset-0 h-full w-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
+              >
+                <option value="">Move to…</option>
+                {otherCategories.map((c) => (
+                  <option key={c.key} value={c.key}>
+                    {c.label}
+                  </option>
+                ))}
+              </select>
+              <div className="pointer-events-none flex h-6 w-6 items-center justify-center rounded-lg text-slate-400 peer-hover:bg-slate-100 peer-hover:text-slate-600 dark:text-slate-500 dark:peer-hover:bg-slate-800">
+                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 7h11m0 0l-4-4m4 4l-4 4M16 17H5m0 0l4 4m-4-4l4-4" />
+                </svg>
+              </div>
+            </div>
+          )}
+          {canModify && (
+            <button
+              type="button"
+              onClick={handleDelete}
+              disabled={pending}
+              className="rounded-lg p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:text-slate-500 dark:hover:bg-red-950/40 dark:hover:text-red-400 transition-colors"
+              title="Delete file"
+            >
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M6 7h12M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3m2 0v13a1 1 0 01-1 1H8a1 1 0 01-1-1V7h10Z"
+                />
+              </svg>
+            </button>
+          )}
+        </div>
+      )}
       {actionError && <p className="pl-12 text-xs text-red-600">{actionError}</p>}
       {isEditing && (
         <form onSubmit={handleSave} className="mt-1 flex items-center gap-2 pl-12 animate-in fade-in slide-in-from-top-1 duration-200">
