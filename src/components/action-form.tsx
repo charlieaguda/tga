@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useActionState, useEffect, useRef } from "react";
+import { startTransition, useActionState, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import type { ActionResult } from "@/lib/actions";
 
@@ -19,6 +19,7 @@ export function ActionForm({
   disabled = false,
   disabledHint,
   onSuccess,
+  successMessage,
 }: {
   action: (prev: ActionResult, formData: FormData) => Promise<ActionResult>;
   submitLabel: string;
@@ -28,6 +29,7 @@ export function ActionForm({
   disabled?: boolean;
   disabledHint?: string;
   onSuccess?: () => void;
+  successMessage?: string;
 }) {
   const [state, dispatch, pending] = useActionState(
     async (prev: ActionResult, formData: FormData) => action(prev, formData),
@@ -35,14 +37,23 @@ export function ActionForm({
   );
   const formRef = useRef<HTMLFormElement>(null);
   const submittedRef = useRef(false);
+  const [justSucceeded, setJustSucceeded] = useState(false);
 
   useEffect(() => {
     if (submittedRef.current && state.ok && !pending) {
       if (resetOnSuccess) formRef.current?.reset();
       submittedRef.current = false;
       onSuccess?.();
+      if (successMessage) {
+        const showTimer = setTimeout(() => setJustSucceeded(true), 0);
+        const hideTimer = setTimeout(() => setJustSucceeded(false), 2500);
+        return () => {
+          clearTimeout(showTimer);
+          clearTimeout(hideTimer);
+        };
+      }
     }
-  }, [state, pending, resetOnSuccess, onSuccess]);
+  }, [state, pending, resetOnSuccess, onSuccess, successMessage]);
 
   return (
     <form
@@ -58,6 +69,7 @@ export function ActionForm({
     >
       {children}
       {!state.ok && state.error && <p className="text-sm text-red-600">{state.error}</p>}
+      {justSucceeded && <p className="text-sm text-emerald-600">{successMessage}</p>}
       {disabled && disabledHint && <p className="text-sm text-amber-600">{disabledHint}</p>}
       <button
         type="submit"

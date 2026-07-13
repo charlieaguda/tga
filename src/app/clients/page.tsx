@@ -81,6 +81,7 @@ export default async function ClientsPage() {
                             submitLabel="Save"
                             className="mt-2 flex flex-col gap-2"
                             resetOnSuccess={false}
+                            successMessage="Default manager updated"
                           >
                             <input type="hidden" name="clientId" value={c.id} />
                             <select name="defaultManagerId" defaultValue={c.defaultManagerId ?? ""} className={inputCls}>
@@ -105,6 +106,7 @@ export default async function ClientsPage() {
                               submitLabel="Save"
                               className="mt-2 flex flex-col gap-2"
                               resetOnSuccess={false}
+                              successMessage="Default editor updated"
                             >
                               <input type="hidden" name="clientId" value={c.id} />
                               <select name="defaultEditorId" defaultValue={c.defaultEditorId ?? ""} className={inputCls}>
