@@ -1,0 +1,24 @@
+import { NextResponse, type NextRequest } from "next/server";
+import { db } from "@/lib/db";
+import { authorize } from "@/lib/permissions";
+import { fetchThumbnail } from "@/lib/drive";
+import { ValidationError, errorToStatus } from "@/lib/errors";
+
+export async function GET(_req: NextRequest, ctx: { params: Promise<{ fileId: string }> }) {
+  try {
+    const { fileId } = await ctx.params;
+    const file = await db.file.findUnique({ where: { id: fileId } });
+    if (!file || !file.clientId) throw new ValidationError("File not found");
+    await authorize("client.file.read", { client: { id: file.clientId } });
+
+    const thumb = await fetchThumbnail(file.driveFileId);
+    if (!thumb) return NextResponse.json({ error: "No thumbnail available" }, { status: 404 });
+
+    return new NextResponse(thumb.body, {
+      headers: { "Content-Type": thumb.contentType, "Cache-Control": "private, max-age=3600" },
+    });
+  } catch (err) {
+    const status = errorToStatus(err);
+    return NextResponse.json({ error: (err as Error).message }, { status });
+  }
+}
