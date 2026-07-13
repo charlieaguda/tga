@@ -68,7 +68,7 @@ function FileDropUploader({
   }
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex w-full min-w-0 flex-col gap-2">
       <label className="text-sm font-medium">{label}</label>
       <div
         onDragOver={(e) => {
@@ -84,7 +84,7 @@ function FileDropUploader({
           setIsDragging(false);
           handleFiles(e.dataTransfer.files);
         }}
-        className={`flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed p-6 text-center transition-all ${
+        className={`flex w-full min-w-0 flex-col items-center justify-center gap-2 overflow-hidden rounded-2xl border-2 border-dashed p-6 text-center transition-all ${
           isDragging ? "border-brand-500 bg-brand-500/5 dark:bg-brand-500/10" : "border-slate-200/80 bg-slate-50/20 hover:border-slate-350 dark:border-slate-800/80 dark:bg-slate-900/10 dark:hover:border-slate-700"
         }`}
       >
@@ -95,7 +95,7 @@ function FileDropUploader({
           disabled={busy}
           accept="video/*,image/*,application/pdf"
           onChange={(e) => handleFiles(e.target.files)}
-          className="text-xs file:mr-3 file:cursor-pointer file:rounded-xl file:border-0 file:bg-brand-600 file:px-3.5 file:py-2 file:text-xs file:font-semibold file:text-white hover:file:bg-brand-700 file:transition-colors file:shadow-sm"
+          className="w-full max-w-full text-xs file:mr-3 file:cursor-pointer file:rounded-xl file:border-0 file:bg-brand-600 file:px-3.5 file:py-2 file:text-xs file:font-semibold file:text-white hover:file:bg-brand-700 file:transition-colors file:shadow-sm"
         />
         <p className="text-xs text-gray-400">or drag files here</p>
       </div>

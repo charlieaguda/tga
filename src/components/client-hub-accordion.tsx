@@ -274,7 +274,7 @@ function ClientCard({
                   return (
                     <div
                       key={category.key}
-                      className="rounded-xl border border-slate-200/50 bg-white/50 p-3 dark:border-slate-800/50 dark:bg-slate-900/50 flex flex-col gap-2 h-fit"
+                      className="min-w-0 rounded-xl border border-slate-200/50 bg-white/50 p-3 dark:border-slate-800/50 dark:bg-slate-900/50 flex flex-col gap-2 h-fit"
                     >
                       {/* Category Header Button */}
                       <button
