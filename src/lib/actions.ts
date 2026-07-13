@@ -182,6 +182,23 @@ export async function clientOffboard(clientId: string) {
   return guard(() => clients.offboardClient(id.parse(clientId)));
 }
 
+export async function clientSetDefaults(_prev: ActionResult, formData: FormData) {
+  const parsed = z
+    .object({
+      clientId: id,
+      defaultManagerId: z.string().trim().optional(),
+      defaultEditorId: z.string().trim().optional(),
+    })
+    .safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
+  return guard(() =>
+    clients.setClientDefaults(parsed.data.clientId, {
+      defaultManagerId: parsed.data.defaultManagerId || null,
+      defaultEditorId: parsed.data.defaultEditorId || null,
+    }),
+  );
+}
+
 export async function jobCreate(_prev: ActionResult, formData: FormData) {
   const parsed = z
     .object({

@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
-import { clientCreate, clientSetActive } from "@/lib/actions";
+import { clientCreate, clientSetActive, clientSetDefaults } from "@/lib/actions";
 import { ActionButton } from "@/components/action-button";
 import { ActionForm } from "@/components/action-form";
 import { PageHeader, Section, EmptyState } from "@/components/ui";
@@ -15,10 +15,24 @@ export default async function ClientsPage() {
   if (!user?.isActive) redirect("/login");
   if (user.role !== "ADMIN" && user.role !== "MANAGER") redirect("/dashboard");
 
-  const clients = await db.client.findMany({
-    include: { jobs: { where: { status: { not: "ARCHIVED" } }, select: { id: true } } },
-    orderBy: [{ isActive: "desc" }, { name: "asc" }],
-  });
+  const [clients, managers, editors] = await Promise.all([
+    db.client.findMany({
+      include: {
+        jobs: { where: { status: { not: "ARCHIVED" } }, select: { id: true } },
+        defaultManager: { select: { name: true } },
+        defaultEditor: { select: { name: true } },
+      },
+      orderBy: [{ isActive: "desc" }, { name: "asc" }],
+    }),
+    db.user.findMany({
+      where: { isActive: true, role: { in: ["MANAGER", "ADMIN"] } },
+      orderBy: { name: "asc" },
+    }),
+    db.user.findMany({
+      where: { isActive: true, role: "EDITOR" },
+      orderBy: { name: "asc" },
+    }),
+  ]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -35,6 +49,8 @@ export default async function ClientsPage() {
                   <th className="py-2 pr-4 font-medium">Name</th>
                   <th className="py-2 pr-4 font-medium">Active jobs</th>
                   <th className="py-2 pr-4 font-medium">Notes</th>
+                  {user.role === "ADMIN" && <th className="py-2 pr-4 font-medium">Default manager</th>}
+                  {user.role === "ADMIN" && <th className="py-2 pr-4 font-medium">Default editor</th>}
                   {user.role === "ADMIN" && <th className="py-2 font-medium">Status</th>}
                 </tr>
               </thead>
@@ -52,6 +68,54 @@ export default async function ClientsPage() {
                     <td className="py-2.5 pr-4 whitespace-pre-wrap text-slate-600 dark:text-slate-300">
                       {c.notes ?? "—"}
                     </td>
+                    {user.role === "ADMIN" && (
+                      <td className="py-2.5 pr-4 text-slate-600 dark:text-slate-300">
+                        <details>
+                          <summary className="cursor-pointer select-none">
+                            {c.defaultManager?.name ?? "—"}
+                          </summary>
+                          <ActionForm
+                            action={clientSetDefaults}
+                            submitLabel="Save"
+                            className="mt-2 flex flex-col gap-2"
+                            resetOnSuccess={false}
+                          >
+                            <input type="hidden" name="clientId" value={c.id} />
+                            <input type="hidden" name="defaultEditorId" value={c.defaultEditorId ?? ""} />
+                            <select name="defaultManagerId" defaultValue={c.defaultManagerId ?? ""} className={inputCls}>
+                              <option value="">— none —</option>
+                              {managers.map((m) => (
+                                <option key={m.id} value={m.id}>{m.name}</option>
+                              ))}
+                            </select>
+                          </ActionForm>
+                        </details>
+                      </td>
+                    )}
+                    {user.role === "ADMIN" && (
+                      <td className="py-2.5 pr-4 text-slate-600 dark:text-slate-300">
+                        <details>
+                          <summary className="cursor-pointer select-none">
+                            {c.defaultEditor?.name ?? "—"}
+                          </summary>
+                          <ActionForm
+                            action={clientSetDefaults}
+                            submitLabel="Save"
+                            className="mt-2 flex flex-col gap-2"
+                            resetOnSuccess={false}
+                          >
+                            <input type="hidden" name="clientId" value={c.id} />
+                            <input type="hidden" name="defaultManagerId" value={c.defaultManagerId ?? ""} />
+                            <select name="defaultEditorId" defaultValue={c.defaultEditorId ?? ""} className={inputCls}>
+                              <option value="">— none —</option>
+                              {editors.map((e) => (
+                                <option key={e.id} value={e.id}>{e.name}</option>
+                              ))}
+                            </select>
+                          </ActionForm>
+                        </details>
+                      </td>
+                    )}
                     {user.role === "ADMIN" && (
                       <td className="py-2.5">
                         {c.isActive ? (

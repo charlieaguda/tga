@@ -14,7 +14,8 @@ export async function createJob(input: {
   const client = await db.client.findUnique({ where: { id: input.clientId } });
   if (!client?.isActive) throw new ValidationError("Client not found or inactive");
 
-  // Managers own the jobs they create; Admin may pick the owning manager.
+  // Managers own the jobs they create; Admin may pick the owning manager,
+  // or leave it blank to inherit the client's default manager (if set).
   let managerId = actor.id;
   if (input.managerId && input.managerId !== actor.id) {
     if (actor.role !== "ADMIN") throw new ValidationError("Only Admin can assign another manager");
@@ -22,6 +23,8 @@ export async function createJob(input: {
     if (!manager?.isActive || (manager.role !== "MANAGER" && manager.role !== "ADMIN"))
       throw new ValidationError("Owner must be an active manager");
     managerId = manager.id;
+  } else if (!input.managerId && actor.role === "ADMIN" && client.defaultManagerId) {
+    managerId = client.defaultManagerId;
   }
 
   return db.$transaction(async (tx) => {
@@ -31,6 +34,7 @@ export async function createJob(input: {
         managerId,
         title: input.title.trim(),
         description: input.description?.trim(),
+        defaultEditorId: client.defaultEditorId ?? undefined,
       },
     });
     await logActivity(tx, {

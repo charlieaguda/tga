@@ -74,6 +74,44 @@ export async function setClientNotionUrl(clientId: string, notionUrl: string | n
   });
 }
 
+export async function setClientDefaults(
+  clientId: string,
+  input: { defaultManagerId: string | null; defaultEditorId: string | null },
+) {
+  const client = await db.client.findUnique({ where: { id: clientId } });
+  if (!client) throw new ValidationError("Client not found");
+  const actor = await authorize("client.assignDefaults");
+
+  if (input.defaultManagerId) {
+    const manager = await db.user.findUnique({ where: { id: input.defaultManagerId } });
+    if (!manager?.isActive || (manager.role !== "MANAGER" && manager.role !== "ADMIN"))
+      throw new ValidationError("Default manager must be an active manager");
+  }
+  if (input.defaultEditorId) {
+    const editor = await db.user.findUnique({ where: { id: input.defaultEditorId } });
+    if (!editor?.isActive || editor.role !== "EDITOR")
+      throw new ValidationError("Default editor must be an active editor");
+  }
+
+  await db.$transaction(async (tx) => {
+    await tx.client.update({
+      where: { id: clientId },
+      data: {
+        defaultManagerId: input.defaultManagerId,
+        defaultEditorId: input.defaultEditorId,
+      },
+    });
+    await logActivity(tx, {
+      actorId: actor.id,
+      action: "client.defaults_changed",
+      entityType: "client",
+      entityId: clientId,
+      clientId,
+      meta: { defaultManagerId: input.defaultManagerId, defaultEditorId: input.defaultEditorId },
+    });
+  });
+}
+
 /**
  * Offboard a client: move its Drive folder under a global "Archive" parent
  * (skipped gracefully if Drive isn't configured or the client never got a

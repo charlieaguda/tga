@@ -39,7 +39,8 @@ export type Action =
   | "comment.create"
   | "dashboard.viewAll"
   | "auditlog.read"
-  | "drive.manage";
+  | "drive.manage"
+  | "client.assignDefaults";
 
 const managesJob = (u: SessionUser, job: JobResource) =>
   u.role === "ADMIN" || (u.role === "MANAGER" && job.managerId === u.id);
@@ -84,6 +85,7 @@ const policy: Record<Action, (u: SessionUser, resource?: any) => boolean> = {
   "dashboard.viewAll": (u) => u.role !== "EDITOR" && u.role !== "CLIENT",
   "auditlog.read": (u) => u.role === "ADMIN" || u.role === "CEO",
   "drive.manage": (u) => u.role === "ADMIN",
+  "client.assignDefaults": (u) => u.role === "ADMIN",
 };
 
 export async function requireUser(): Promise<SessionUser> {

@@ -85,6 +85,8 @@ model User {
   notifications     Notification[]
   activities        ActivityLog[]
   driveConnections  DriveConnection[]
+  defaultManagerForClients Client[] @relation("ClientDefaultManager")
+  defaultEditorForClients  Client[] @relation("ClientDefaultEditor")
 
   accounts Account[]
   sessions Session[]
@@ -124,14 +126,18 @@ model Session {
 // ---------- Clients & Jobs ----------
 
 model Client {
-  id            String     @id @default(cuid())
-  name          String     @unique
-  notes         String?
-  isActive      Boolean    @default(true)
-  driveFolderId String?
-  notionUrl     String? // Notion page embedded full-screen on the client hub page
-  offboardedAt  DateTime? // null = normal; set when the client is archived/offboarded
-  createdAt     DateTime   @default(now())
+  id               String     @id @default(cuid())
+  name             String     @unique
+  notes            String?
+  isActive         Boolean    @default(true)
+  driveFolderId    String?
+  notionUrl        String? // Notion page embedded full-screen on the client hub page
+  offboardedAt     DateTime? // null = normal; set when the client is archived/offboarded
+  defaultManagerId String? // pre-fills new jobs' manager for ADMIN-created jobs only — see jobs.ts createJob
+  defaultManager   User?      @relation("ClientDefaultManager", fields: [defaultManagerId], references: [id])
+  defaultEditorId  String? // copied onto new jobs' defaultEditorId at creation
+  defaultEditor    User?      @relation("ClientDefaultEditor", fields: [defaultEditorId], references: [id])
+  createdAt        DateTime   @default(now())
 
   jobs            Job[]
   users           User[]
