@@ -345,6 +345,6 @@ export async function moveClientFile(fileId: string, newCategoryKey: string): Pr
     entityType: "file",
     entityId: file.id,
     clientId: client.id,
-    meta: { from: file.category, to: newCategoryKey },
+    meta: { from: file.category, to: newCategoryKey, name: file.storedName },
   });
 }

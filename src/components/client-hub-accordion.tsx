@@ -9,6 +9,7 @@ import { MonthCalendar } from "@/components/month-calendar";
 import { TaskStatusBadge } from "@/components/status-badge";
 import { isOverdue, fmtDate } from "@/lib/format";
 import { buildTaskDaysMap } from "@/lib/task-calendar";
+import type { FileActivityDaysMap } from "@/lib/file-activity-calendar";
 
 interface CategoryDef {
   key: string;
@@ -48,6 +49,7 @@ interface ClientWithFilesAndActivity {
   notionUrl: string | null;
   files: ClientFile[];
   activeDays: string[];
+  fileActivityDays: FileActivityDaysMap;
   jobs: JobWithTasks[];
 }
 
@@ -56,7 +58,6 @@ export function ClientHubAccordion({
   year,
   month,
   canEdit,
-  canManage,
   categories,
   driveConfigured,
 }: {
@@ -64,7 +65,6 @@ export function ClientHubAccordion({
   year: number;
   month: number;
   canEdit: boolean;
-  canManage: boolean;
   categories: CategoryDef[];
   driveConfigured: boolean;
 }) {
@@ -77,7 +77,6 @@ export function ClientHubAccordion({
           year={year}
           month={month}
           canEdit={canEdit}
-          canManage={canManage}
           categories={categories}
           driveConfigured={driveConfigured}
         />
@@ -96,7 +95,6 @@ function ClientCard({
   year,
   month,
   canEdit,
-  canManage,
   categories,
   driveConfigured,
 }: {
@@ -104,7 +102,6 @@ function ClientCard({
   year: number;
   month: number;
   canEdit: boolean;
-  canManage: boolean;
   categories: CategoryDef[];
   driveConfigured: boolean;
 }) {
@@ -116,7 +113,7 @@ function ClientCard({
       ? client.notes.slice(0, 80) + "..."
       : client.notes
     : "";
-  const taskDays = canManage ? buildTaskDaysMap(client.jobs.flatMap((j) => j.tasks)) : undefined;
+  const taskDays = buildTaskDaysMap(client.jobs.flatMap((j) => j.tasks));
 
   return (
     <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_2px_12px_-3px_rgba(0,0,0,0.02)] dark:border-slate-800/80 dark:bg-slate-900 transition-all duration-200">
@@ -295,6 +292,7 @@ function ClientCard({
                 activeDays={new Set(client.activeDays)}
                 baseHref={`/client-hub/${client.id}`}
                 taskDays={taskDays}
+                fileActivityDays={client.fileActivityDays}
               />
             </div>
           </div>

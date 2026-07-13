@@ -4,19 +4,23 @@ import { useEffect, useState } from "react";
 import { DayHoverCard } from "@/components/day-hover-card";
 import { DayInfoModal } from "@/components/day-info-modal";
 import type { DayTaskActivity } from "@/lib/task-calendar";
+import type { FileActivityEntry } from "@/lib/file-activity-calendar";
 
 const EMPTY: DayTaskActivity = { initiated: [], due: [] };
+const EMPTY_FILE_EVENTS: FileActivityEntry[] = [];
 
 export function DayCell({
   day,
   dateKey,
   active,
   tasks,
+  fileEvents,
 }: {
   day: number;
   dateKey: string;
   active: boolean;
   tasks?: DayTaskActivity;
+  fileEvents?: FileActivityEntry[];
 }) {
   const [hovered, setHovered] = useState(false);
   const [open, setOpen] = useState(false);
@@ -31,8 +35,9 @@ export function DayCell({
   }, [open]);
 
   const dayTasks = tasks ?? EMPTY;
+  const dayFileEvents = fileEvents ?? EMPTY_FILE_EVENTS;
   const hasTasks = dayTasks.initiated.length > 0 || dayTasks.due.length > 0;
-  const interactive = active || hasTasks;
+  const interactive = dayFileEvents.length > 0 || hasTasks;
 
   const dateLabel = new Date(`${dateKey}T00:00:00Z`).toLocaleDateString("en-AU", {
     weekday: "short",
@@ -57,7 +62,7 @@ export function DayCell({
         }`}
       >
         {day}
-        {(dayTasks.initiated.length > 0 || dayTasks.due.length > 0) && (
+        {(dayTasks.initiated.length > 0 || dayTasks.due.length > 0 || (dayFileEvents.length > 0 && !active)) && (
           <div className="absolute bottom-0.5 left-1/2 flex -translate-x-1/2 gap-0.5">
             {dayTasks.initiated.length > 0 && (
               <span className="h-1 w-1 rounded-full bg-brand-500 dark:bg-brand-400" />
@@ -65,18 +70,21 @@ export function DayCell({
             {dayTasks.due.length > 0 && (
               <span className="h-1 w-1 rounded-full bg-amber-500 dark:bg-amber-400" />
             )}
+            {dayFileEvents.length > 0 && !active && (
+              <span className="h-1 w-1 rounded-full bg-slate-400 dark:bg-slate-500" />
+            )}
           </div>
         )}
       </div>
 
       {hovered && interactive && !open && (
         <div className="absolute left-1/2 top-full z-20 mt-1 -translate-x-1/2">
-          <DayHoverCard dateLabel={dateLabel} uploaded={active} tasks={dayTasks} />
+          <DayHoverCard dateLabel={dateLabel} fileEvents={dayFileEvents} tasks={dayTasks} />
         </div>
       )}
 
       {open && (
-        <DayInfoModal dateLabel={dateLabel} uploaded={active} tasks={dayTasks} onClose={() => setOpen(false)} />
+        <DayInfoModal dateLabel={dateLabel} fileEvents={dayFileEvents} tasks={dayTasks} onClose={() => setOpen(false)} />
       )}
     </div>
   );

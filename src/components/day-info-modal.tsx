@@ -4,6 +4,25 @@ import Link from "next/link";
 import { TaskStatusBadge } from "@/components/status-badge";
 import { fmtDate } from "@/lib/format";
 import type { DayTaskActivity } from "@/lib/task-calendar";
+import type { FileActivityEntry } from "@/lib/file-activity-calendar";
+
+function FileEventRows({ events }: { events: FileActivityEntry[] }) {
+  if (events.length === 0) return null;
+  return (
+    <div>
+      <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+        Client hub activity
+      </p>
+      <ul className="flex flex-col gap-1.5">
+        {events.map((e) => (
+          <li key={e.id} className="text-sm text-slate-700 dark:text-slate-300">
+            <span className="font-medium">{e.actorName}</span> {e.description}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
 
 function TaskRows({ label, tasks }: { label: string; tasks: DayTaskActivity["initiated"] }) {
   if (tasks.length === 0) return null;
@@ -34,16 +53,16 @@ function TaskRows({ label, tasks }: { label: string; tasks: DayTaskActivity["ini
 
 export function DayInfoModal({
   dateLabel,
-  uploaded,
+  fileEvents,
   tasks,
   onClose,
 }: {
   dateLabel: string;
-  uploaded: boolean;
+  fileEvents: FileActivityEntry[];
   tasks: DayTaskActivity;
   onClose: () => void;
 }) {
-  const isEmpty = !uploaded && tasks.initiated.length === 0 && tasks.due.length === 0;
+  const isEmpty = fileEvents.length === 0 && tasks.initiated.length === 0 && tasks.due.length === 0;
 
   return (
     <div
@@ -66,9 +85,7 @@ export function DayInfoModal({
           </button>
         </div>
         <div className="flex flex-col gap-3">
-          {uploaded && (
-            <p className="text-sm text-emerald-700 dark:text-emerald-400">Creatives uploaded this day.</p>
-          )}
+          <FileEventRows events={fileEvents} />
           <TaskRows label="Initiated" tasks={tasks.initiated} />
           <TaskRows label="Due" tasks={tasks.due} />
           {isEmpty && <p className="text-sm text-slate-400 dark:text-slate-500">Nothing on this day.</p>}

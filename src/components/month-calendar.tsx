@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { DayCell } from "@/components/day-cell";
 import type { TaskDaysMap } from "@/lib/task-calendar";
+import type { FileActivityDaysMap } from "@/lib/file-activity-calendar";
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -10,8 +11,9 @@ function pad(n: number): string {
 
 /**
  * Server-rendered month grid — navigation via ?month=YYYY-MM links. Day cells
- * stay plain (no client JS) unless `taskDays` is supplied, in which case they
- * delegate to the interactive `DayCell` client widget.
+ * stay plain (no client JS) unless `taskDays` and/or `fileActivityDays` is
+ * supplied, in which case they delegate to the interactive `DayCell` client
+ * widget.
  */
 export function MonthCalendar({
   year,
@@ -19,12 +21,14 @@ export function MonthCalendar({
   activeDays, // Set of "YYYY-MM-DD" days that have upload activity
   baseHref,
   taskDays,
+  fileActivityDays,
 }: {
   year: number;
   month: number;
   activeDays: Set<string>;
   baseHref: string;
   taskDays?: TaskDaysMap;
+  fileActivityDays?: FileActivityDaysMap;
 }) {
   const first = new Date(Date.UTC(year, month - 1, 1));
   const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
@@ -70,7 +74,7 @@ export function MonthCalendar({
           if (day === null) return <div key={i} />;
           const dateKey = `${year}-${pad(month)}-${pad(day)}`;
           const active = activeDays.has(dateKey);
-          if (!taskDays) {
+          if (!taskDays && !fileActivityDays) {
             return (
               <div
                 key={i}
@@ -85,7 +89,16 @@ export function MonthCalendar({
               </div>
             );
           }
-          return <DayCell key={i} day={day} dateKey={dateKey} active={active} tasks={taskDays[dateKey]} />;
+          return (
+            <DayCell
+              key={i}
+              day={day}
+              dateKey={dateKey}
+              active={active}
+              tasks={taskDays?.[dateKey]}
+              fileEvents={fileActivityDays?.[dateKey]}
+            />
+          );
         })}
       </div>
     </div>

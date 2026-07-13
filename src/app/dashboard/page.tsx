@@ -10,6 +10,7 @@ import { PageHeader, Section, StatTile, EmptyState } from "@/components/ui";
 import { ClientHubAccordion } from "@/components/client-hub-accordion";
 import { listCategories } from "@/lib/services/categories";
 import { isDriveConfigured } from "@/lib/drive";
+import { FILE_ACTIVITY_ACTIONS, buildFileActivityDaysMap } from "@/lib/file-activity-calendar";
 
 const include = { job: { include: { client: true } }, assignee: true } satisfies Prisma.TaskInclude;
 const OPEN: TaskStatus[] = ["ASSIGNED", "IN_PROGRESS", "SUBMITTED", "CHANGES_REQUESTED", "APPROVED"];
@@ -90,21 +91,25 @@ async function EditorDashboard(userId: string) {
   ]);
 
   const clientIds = clients.map((c) => c.id);
-  const uploads = await db.activityLog.findMany({
+  const activity = await db.activityLog.findMany({
     where: {
       clientId: { in: clientIds },
-      action: "file.uploaded",
+      action: { in: [...FILE_ACTIVITY_ACTIONS] },
       createdAt: { gte: monthStart, lt: monthEnd },
     },
-    select: { clientId: true, createdAt: true },
+    select: { id: true, clientId: true, action: true, meta: true, createdAt: true, actor: { select: { name: true } } },
+    orderBy: { createdAt: "asc" },
   });
 
   const clientsWithActivity = clients.map((c) => {
-    const clientUploads = uploads.filter((u) => u.clientId === c.id);
-    const activeDays = clientUploads.map((u) => u.createdAt.toISOString().slice(0, 10));
+    const clientActivity = activity.filter((a) => a.clientId === c.id);
+    const activeDays = clientActivity
+      .filter((a) => a.action === "file.uploaded")
+      .map((a) => a.createdAt.toISOString().slice(0, 10));
     return {
       ...c,
       activeDays,
+      fileActivityDays: buildFileActivityDaysMap(clientActivity, categories),
     };
   });
 
@@ -123,7 +128,6 @@ async function EditorDashboard(userId: string) {
           year={year}
           month={month}
           canEdit={true}
-          canManage={false}
           categories={categories}
           driveConfigured={driveConfigured}
         />
@@ -211,21 +215,25 @@ async function ManagerDashboard(userId: string) {
   ]);
 
   const clientIds = clients.map((c) => c.id);
-  const uploads = await db.activityLog.findMany({
+  const activity = await db.activityLog.findMany({
     where: {
       clientId: { in: clientIds },
-      action: "file.uploaded",
+      action: { in: [...FILE_ACTIVITY_ACTIONS] },
       createdAt: { gte: monthStart, lt: monthEnd },
     },
-    select: { clientId: true, createdAt: true },
+    select: { id: true, clientId: true, action: true, meta: true, createdAt: true, actor: { select: { name: true } } },
+    orderBy: { createdAt: "asc" },
   });
 
   const clientsWithActivity = clients.map((c) => {
-    const clientUploads = uploads.filter((u) => u.clientId === c.id);
-    const activeDays = clientUploads.map((u) => u.createdAt.toISOString().slice(0, 10));
+    const clientActivity = activity.filter((a) => a.clientId === c.id);
+    const activeDays = clientActivity
+      .filter((a) => a.action === "file.uploaded")
+      .map((a) => a.createdAt.toISOString().slice(0, 10));
     return {
       ...c,
       activeDays,
+      fileActivityDays: buildFileActivityDaysMap(clientActivity, categories),
     };
   });
 
@@ -247,7 +255,6 @@ async function ManagerDashboard(userId: string) {
           year={year}
           month={month}
           canEdit={true}
-          canManage={true}
           categories={categories}
           driveConfigured={driveConfigured}
         />

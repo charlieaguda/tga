@@ -11,6 +11,7 @@ import { MonthCalendar } from "@/components/month-calendar";
 import { isDriveConfigured } from "@/lib/drive";
 import { fmtDate } from "@/lib/format";
 import { buildTaskDaysMap } from "@/lib/task-calendar";
+import { FILE_ACTIVITY_ACTIONS, buildFileActivityDaysMap, type FileActivityDaysMap } from "@/lib/file-activity-calendar";
 import { Section } from "@/components/ui";
 
 const inputCls =
@@ -65,25 +66,43 @@ export default async function ClientHubDetailPage(props: {
     : [now.getUTCFullYear(), now.getUTCMonth() + 1];
   const monthStart = new Date(Date.UTC(year, month - 1, 1));
   const monthEnd = new Date(Date.UTC(year, month, 1));
-  const uploads = await db.activityLog.findMany({
-    where: { clientId: id, action: "file.uploaded", createdAt: { gte: monthStart, lt: monthEnd } },
-    select: { createdAt: true },
-  });
-  const activeDays = new Set(uploads.map((u) => u.createdAt.toISOString().slice(0, 10)));
 
-  const monthTasks = canManage
-    ? await db.task.findMany({
-        where: {
-          job: { clientId: id },
-          OR: [
-            { createdAt: { gte: monthStart, lt: monthEnd } },
-            { dueAt: { gte: monthStart, lt: monthEnd } },
-          ],
-        },
-        select: { id: true, title: true, status: true, createdAt: true, dueAt: true },
-      })
-    : [];
-  const taskDays = canManage ? buildTaskDaysMap(monthTasks) : undefined;
+  const isStaff = user.role !== "CLIENT";
+  let activeDays: Set<string>;
+  let fileActivityDays: FileActivityDaysMap | undefined;
+  let taskDays: ReturnType<typeof buildTaskDaysMap> | undefined;
+
+  if (isStaff) {
+    const activity = await db.activityLog.findMany({
+      where: { clientId: id, action: { in: [...FILE_ACTIVITY_ACTIONS] }, createdAt: { gte: monthStart, lt: monthEnd } },
+      select: { id: true, action: true, meta: true, createdAt: true, actor: { select: { name: true } } },
+      orderBy: { createdAt: "asc" },
+    });
+    activeDays = new Set(
+      activity.filter((a) => a.action === "file.uploaded").map((a) => a.createdAt.toISOString().slice(0, 10)),
+    );
+    fileActivityDays = buildFileActivityDaysMap(activity, categories);
+
+    const monthTasks = await db.task.findMany({
+      where: {
+        job: { clientId: id },
+        ...(user.role === "EDITOR" ? { assigneeId: user.id } : {}),
+        OR: [
+          { createdAt: { gte: monthStart, lt: monthEnd } },
+          { dueAt: { gte: monthStart, lt: monthEnd } },
+        ],
+      },
+      select: { id: true, title: true, status: true, createdAt: true, dueAt: true },
+    });
+    taskDays = buildTaskDaysMap(monthTasks);
+  } else {
+    const uploads = await db.activityLog.findMany({
+      where: { clientId: id, action: "file.uploaded", createdAt: { gte: monthStart, lt: monthEnd } },
+      select: { createdAt: true },
+    });
+    activeDays = new Set(uploads.map((u) => u.createdAt.toISOString().slice(0, 10)));
+  }
+
   const driveConfigured = await isDriveConfigured();
 
   return (
@@ -183,6 +202,7 @@ export default async function ClientHubDetailPage(props: {
           activeDays={activeDays}
           baseHref={`/client-hub/${client.id}`}
           taskDays={taskDays}
+          fileActivityDays={fileActivityDays}
         />
       </Section>
     </div>
