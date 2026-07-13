@@ -6,6 +6,7 @@ import { listCategories } from "@/lib/services/categories";
 import { ActionButton } from "@/components/action-button";
 import { ActionForm } from "@/components/action-form";
 import { AddCategoryButton } from "@/components/add-category-button";
+import { CategoryDropZone } from "@/components/category-drop-zone";
 import { ClientFileUploader } from "@/components/file-drop-uploader";
 import { MonthCalendar } from "@/components/month-calendar";
 import { isDriveConfigured } from "@/lib/drive";
@@ -156,22 +157,30 @@ export default async function ClientHubDetailPage(props: {
       </Section>
 
       {categories.map((category) => (
-        <Section key={category.key} title={category.label}>
-          {(filesByCategory.get(category.key)?.length ?? 0) === 0 ? (
-            <p className="text-sm text-slate-400 dark:text-slate-500">No files yet.</p>
-          ) : (
-            <ul className="flex flex-col gap-1 text-sm">
-              {filesByCategory.get(category.key)!.map((f) => (
-                <ClientFileItem key={f.id} file={f} canEdit={canEdit} />
-              ))}
-            </ul>
-          )}
-          {canUploadCategory(category) && driveConfigured && !client.offboardedAt && (
-            <div className="mt-3">
-              <ClientFileUploader clientId={client.id} category={category.key} />
-            </div>
-          )}
-        </Section>
+        <CategoryDropZone key={category.key} categoryKey={category.key}>
+          <Section title={category.label}>
+            {(filesByCategory.get(category.key)?.length ?? 0) === 0 ? (
+              <p className="text-sm text-slate-400 dark:text-slate-500">No files yet.</p>
+            ) : (
+              <ul className="flex flex-col gap-1 text-sm">
+                {filesByCategory.get(category.key)!.map((f) => (
+                  <ClientFileItem
+                    key={f.id}
+                    file={f}
+                    canEdit={canEdit}
+                    canModify={canUploadCategory(category)}
+                    categories={categories}
+                  />
+                ))}
+              </ul>
+            )}
+            {canUploadCategory(category) && driveConfigured && !client.offboardedAt && (
+              <div className="mt-3">
+                <ClientFileUploader clientId={client.id} category={category.key} />
+              </div>
+            )}
+          </Section>
+        </CategoryDropZone>
       ))}
 
       {user.role !== "CLIENT" && (
