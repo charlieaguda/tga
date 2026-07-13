@@ -376,3 +376,7 @@ export async function updateFileDescription(_prev: ActionResult, formData: FormD
     await clientFiles.updateClientFileDescription(parsed.data.fileId, parsed.data.description);
   });
 }
+
+export async function clientFileDelete(fileId: string): Promise<ActionResult> {
+  return guard(() => clientFiles.deleteClientFile(id.parse(fileId)));
+}

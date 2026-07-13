@@ -9,6 +9,7 @@ import {
   findFileByAppProperty,
   isDriveConfigured,
   sharedDriveRootId,
+  trashFile,
 } from "@/lib/drive";
 import { sanitizeFileName, slugify } from "@/lib/slug";
 import { assertValidUploadDeclaration, verifyDriveUpload } from "@/lib/upload-policy";
@@ -283,4 +284,27 @@ export async function updateClientFileDescription(fileId: string, description: s
   });
 
   return updated;
+}
+
+export async function deleteClientFile(fileId: string): Promise<void> {
+  const file = await db.file.findUnique({ where: { id: fileId } });
+  if (!file || !file.clientId || !file.category) throw new ValidationError("File not found");
+
+  const client = await db.client.findUniqueOrThrow({ where: { id: file.clientId } });
+  const category = await db.category.findUniqueOrThrow({ where: { key: file.category } });
+
+  const user = await requireUser();
+  const editorHasTask = await resolveEditorHasTask(user, client.id);
+  const actor = await authorize("client.file.upload", { client, category, editorHasTask });
+
+  await trashFile(file.driveFileId);
+  await db.file.delete({ where: { id: fileId } });
+  await logActivity(db, {
+    actorId: actor.id,
+    action: "file.deleted",
+    entityType: "file",
+    entityId: file.id,
+    clientId: client.id,
+    meta: { name: file.storedName, category: file.category },
+  });
 }
