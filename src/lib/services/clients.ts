@@ -4,6 +4,8 @@ import { logActivity } from "@/lib/activity";
 import { ConflictError, ForbiddenError, ValidationError } from "@/lib/errors";
 import { ensureFolder, isDriveConfigured, moveFolder, sharedDriveRootId } from "@/lib/drive";
 import { slugify } from "@/lib/slug";
+import { listCategories } from "@/lib/services/categories";
+import { ensureClientCategoryFolder } from "@/lib/services/client-files";
 
 export async function createClient(input: { name: string; notes?: string }) {
   const actor = await authorize("client.write");
@@ -17,8 +19,8 @@ export async function createClient(input: { name: string; notes?: string }) {
     ? await ensureFolder(await ensureFolder(sharedDriveRootId(), "Clients"), slugify(name))
     : null;
 
-  return db.$transaction(async (tx) => {
-    const client = await tx.client.create({
+  const client = await db.$transaction(async (tx) => {
+    const created = await tx.client.create({
       data: {
         name,
         notes: input.notes?.trim(),
@@ -30,11 +32,23 @@ export async function createClient(input: { name: string; notes?: string }) {
       actorId: actor.id,
       action: "client.created",
       entityType: "client",
-      entityId: client.id,
-      clientId: client.id,
+      entityId: created.id,
+      clientId: created.id,
     });
-    return client;
+    return created;
   });
+
+  // Eagerly create every category's Drive subfolder too, so a fresh client's
+  // Drive folder mirrors the app's category list from the start instead of
+  // filling in one-by-one as each category gets its first upload.
+  if (driveFolderId) {
+    const categories = await listCategories();
+    for (const category of categories) {
+      await ensureClientCategoryFolder(client, category);
+    }
+  }
+
+  return client;
 }
 
 async function assertNoOpenJobs(clientId: string) {

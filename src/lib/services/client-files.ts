@@ -18,7 +18,7 @@ import { assertValidUploadDeclaration, verifyDriveUpload } from "@/lib/upload-po
  * pair, caching the ID in ClientCategoryFolder — mirrors how Client/Job/
  * Task/Submission each cache their own folder ID on their own row.
  */
-async function ensureClientCategoryFolder(client: Client, category: Category): Promise<string> {
+export async function ensureClientCategoryFolder(client: Client, category: Category): Promise<string> {
   const existing = await db.clientCategoryFolder.findUnique({
     where: { clientId_category: { clientId: client.id, category: category.key } },
   });
