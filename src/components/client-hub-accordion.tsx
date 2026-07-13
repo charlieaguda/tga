@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import type { TaskStatus } from "@prisma/client";
 import { AddCategoryButton } from "@/components/add-category-button";
+import { CategoryDropZone } from "@/components/category-drop-zone";
 import { ClientFileItem } from "@/components/client-file-item";
 import { ClientFileUploader } from "@/components/file-drop-uploader";
 import { MonthCalendar } from "@/components/month-calendar";
@@ -24,6 +25,7 @@ interface ClientFile {
   sizeBytes: bigint | number;
   category: string | null;
   description: string | null;
+  mimeType: string;
 }
 
 interface TaskSummary {
@@ -272,8 +274,9 @@ function ClientCard({
                   const isCatExpanded = !!expandedCategories[category.key];
 
                   return (
-                    <div
+                    <CategoryDropZone
                       key={category.key}
+                      categoryKey={category.key}
                       className="min-w-0 rounded-xl border border-slate-200/50 bg-white/50 p-3 dark:border-slate-800/50 dark:bg-slate-900/50 flex flex-col gap-2 h-fit"
                     >
                       {/* Category Header Button */}
@@ -308,6 +311,8 @@ function ClientCard({
                                   key={f.id}
                                   file={f}
                                   canEdit={canEdit}
+                                  canModify={true}
+                                  categories={categories}
                                 />
                               ))
                             ) : (
@@ -323,7 +328,7 @@ function ClientCard({
                           )}
                         </>
                       )}
-                    </div>
+                    </CategoryDropZone>
                   );
                 })}
               </div>
