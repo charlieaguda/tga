@@ -14,6 +14,7 @@
  *   or a plain folder in someone's My Drive (personal account, dev/testing).
  */
 import { google, type drive_v3 } from "googleapis";
+import { Readable } from "node:stream";
 import { db } from "@/lib/db";
 import { decryptSecret } from "@/lib/credential-crypto";
 
@@ -195,6 +196,52 @@ export async function moveFolder(
   );
 }
 
+/** Re-parent a file (used to move a client-hub file between category folders). */
+export async function moveFile(
+  fileId: string,
+  addParentId: string,
+  removeParentId: string,
+): Promise<void> {
+  const { drive } = await getDrive();
+  await withBackoff(() =>
+    drive.files.update({
+      fileId,
+      addParents: addParentId,
+      removeParents: removeParentId,
+      supportsAllDrives: true,
+      fields: "id,parents",
+    }),
+  );
+}
+
+/** Files inside a Shared Drive have exactly one parent — used to find the
+ * folder to remove-from before adding the new one in moveFile. */
+export async function getFileParents(fileId: string): Promise<string[]> {
+  const { drive } = await getDrive();
+  const res = await withBackoff(() =>
+    drive.files.get({ fileId, supportsAllDrives: true, fields: "parents" }),
+  );
+  return res.data.parents ?? [];
+}
+
+/** Move a file to Drive's own Trash (recoverable there, not a permanent delete). */
+export async function trashFile(fileId: string): Promise<void> {
+  const { drive } = await getDrive();
+  try {
+    await withBackoff(() =>
+      drive.files.update({
+        fileId,
+        requestBody: { trashed: true },
+        supportsAllDrives: true,
+        fields: "id",
+      }),
+    );
+  } catch (err) {
+    if (Number((err as { code?: number }).code) === 404) return;
+    throw err;
+  }
+}
+
 // ---------- files ----------
 
 export type DriveFileInfo = {
@@ -297,6 +344,48 @@ export async function findFileByAppProperty(key: string, value: string): Promise
     }),
   );
   return res.data.files?.[0]?.id ?? null;
+}
+
+/**
+ * Fetch a small preview image for a file, authenticated with our own
+ * service credentials — never the viewer's own Google session, so this
+ * works for CLIENT-role users too. Returns null if Drive has no thumbnail
+ * for this mimeType (caller falls back to a generic icon).
+ */
+export async function fetchThumbnail(
+  fileId: string,
+): Promise<{ body: ReadableStream; contentType: string } | null> {
+  const { drive, auth } = await getDrive();
+  const meta = await withBackoff(() =>
+    drive.files.get({ fileId, supportsAllDrives: true, fields: "thumbnailLink" }),
+  );
+  const thumbnailLink = meta.data.thumbnailLink;
+  if (!thumbnailLink) return null;
+
+  const { token } = await auth.getAccessToken();
+  const res = await fetch(thumbnailLink, token ? { headers: { Authorization: `Bearer ${token}` } } : undefined);
+  if (!res.ok || !res.body) return null;
+  return { body: res.body, contentType: res.headers.get("content-type") ?? "image/jpeg" };
+}
+
+/** Stream a file's actual bytes, for in-app image/PDF preview (video preview
+ * uses Drive's own embeddable player instead — see FilePreviewModal). */
+export async function fetchFileContent(
+  fileId: string,
+): Promise<{ body: ReadableStream; contentType: string; sizeBytes: number }> {
+  const { drive } = await getDrive();
+  const meta = await withBackoff(() =>
+    drive.files.get({ fileId, supportsAllDrives: true, fields: "mimeType,size" }),
+  );
+  const res = await withBackoff(() =>
+    drive.files.get({ fileId, alt: "media", supportsAllDrives: true }, { responseType: "stream" }),
+  );
+  const body: ReadableStream = Readable.toWeb(res.data) as ReadableStream;
+  return {
+    body,
+    contentType: meta.data.mimeType ?? "application/octet-stream",
+    sizeBytes: Number(meta.data.size ?? 0),
+  };
 }
 
 /** Public viewer link — staff have read access to the Shared Drive via group membership. */
