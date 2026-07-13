@@ -4,9 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import type { TaskStatus } from "@prisma/client";
 import { AddCategoryButton } from "@/components/add-category-button";
-import { CategoryDropZone } from "@/components/category-drop-zone";
-import { ClientFileItem } from "@/components/client-file-item";
-import { ClientFileUploader } from "@/components/file-drop-uploader";
+import { CategoryFilesButton } from "@/components/category-files-button";
 import { MonthCalendar } from "@/components/month-calendar";
 import { TaskStatusBadge } from "@/components/status-badge";
 import { isOverdue, fmtDate } from "@/lib/format";
@@ -111,14 +109,6 @@ function ClientCard({
   driveConfigured: boolean;
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
-
-  const toggleCategory = (cat: string) => {
-    setExpandedCategories((prev) => ({
-      ...prev,
-      [cat]: !prev[cat],
-    }));
-  };
 
   const fileCount = client.files.length;
   const noteExcerpt = client.notes
@@ -269,68 +259,18 @@ function ClientCard({
               </h4>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {categories.map((category) => {
-                  const catFiles = client.files.filter((f) => f.category === category.key);
-                  const isCatExpanded = !!expandedCategories[category.key];
-
-                  return (
-                    <CategoryDropZone
-                      key={category.key}
-                      categoryKey={category.key}
-                      className="min-w-0 rounded-xl border border-slate-200/50 bg-white/50 p-3 dark:border-slate-800/50 dark:bg-slate-900/50 flex flex-col gap-2 h-fit"
-                    >
-                      {/* Category Header Button */}
-                      <button
-                        type="button"
-                        onClick={() => toggleCategory(category.key)}
-                        className="flex w-full items-center justify-between text-left text-xs font-semibold text-slate-700 hover:text-brand-600 dark:text-slate-300 dark:hover:text-brand-400 transition-colors"
-                      >
-                        <span className="truncate pr-2">
-                          {category.label} ({catFiles.length})
-                        </span>
-                        <svg
-                          className={`h-4.5 w-4.5 shrink-0 text-slate-400 transition-transform duration-250 dark:text-slate-500 ${
-                            isCatExpanded ? "rotate-180" : ""
-                          }`}
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                        >
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                        </svg>
-                      </button>
-
-                      {/* Dropdown File List */}
-                      {isCatExpanded && (
-                        <>
-                          <ul className="flex flex-col gap-1.5 mt-1 border-t border-slate-100/80 pt-2 dark:border-slate-800/40">
-                            {catFiles.length > 0 ? (
-                              catFiles.map((f) => (
-                                <ClientFileItem
-                                  key={f.id}
-                                  file={f}
-                                  canEdit={canEdit}
-                                  canModify={true}
-                                  categories={categories}
-                                />
-                              ))
-                            ) : (
-                              <span className="text-[10px] text-slate-400 dark:text-slate-500 italic pl-1 py-1">
-                                No files uploaded yet.
-                              </span>
-                            )}
-                          </ul>
-                          {driveConfigured && (
-                            <div className="mt-1">
-                              <ClientFileUploader clientId={client.id} category={category.key} />
-                            </div>
-                          )}
-                        </>
-                      )}
-                    </CategoryDropZone>
-                  );
-                })}
+                {categories.map((category) => (
+                  <CategoryFilesButton
+                    key={category.key}
+                    clientId={client.id}
+                    category={category}
+                    files={client.files.filter((f) => f.category === category.key)}
+                    canEdit={canEdit}
+                    canModify={true}
+                    categories={categories}
+                    driveConfigured={driveConfigured}
+                  />
+                ))}
               </div>
 
               {fileCount === 0 && (

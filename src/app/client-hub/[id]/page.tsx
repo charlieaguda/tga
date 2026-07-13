@@ -6,14 +6,12 @@ import { listCategories } from "@/lib/services/categories";
 import { ActionButton } from "@/components/action-button";
 import { ActionForm } from "@/components/action-form";
 import { AddCategoryButton } from "@/components/add-category-button";
-import { CategoryDropZone } from "@/components/category-drop-zone";
-import { ClientFileUploader } from "@/components/file-drop-uploader";
+import { CategoryFilesButton } from "@/components/category-files-button";
 import { MonthCalendar } from "@/components/month-calendar";
 import { isDriveConfigured } from "@/lib/drive";
 import { fmtDate } from "@/lib/format";
 import { buildTaskDaysMap } from "@/lib/task-calendar";
 import { Section } from "@/components/ui";
-import { ClientFileItem } from "@/components/client-file-item";
 
 const inputCls =
   "rounded-lg border border-slate-300 px-3 py-1.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-slate-600 dark:bg-slate-800";
@@ -157,32 +155,20 @@ export default async function ClientHubDetailPage(props: {
         )}
       </Section>
 
-      {categories.map((category) => (
-        <CategoryDropZone key={category.key} categoryKey={category.key}>
-          <Section title={category.label}>
-            {(filesByCategory.get(category.key)?.length ?? 0) === 0 ? (
-              <p className="text-sm text-slate-400 dark:text-slate-500">No files yet.</p>
-            ) : (
-              <ul className="flex flex-col gap-1 text-sm">
-                {filesByCategory.get(category.key)!.map((f) => (
-                  <ClientFileItem
-                    key={f.id}
-                    file={f}
-                    canEdit={canEdit}
-                    canModify={canUploadCategory(category)}
-                    categories={categories}
-                  />
-                ))}
-              </ul>
-            )}
-            {canUploadCategory(category) && driveConfigured && (
-              <div className="mt-3">
-                <ClientFileUploader clientId={client.id} category={category.key} />
-              </div>
-            )}
-          </Section>
-        </CategoryDropZone>
-      ))}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {categories.map((category) => (
+          <CategoryFilesButton
+            key={category.key}
+            clientId={client.id}
+            category={category}
+            files={filesByCategory.get(category.key) ?? []}
+            canEdit={canEdit}
+            canModify={canUploadCategory(category)}
+            categories={categories}
+            driveConfigured={driveConfigured}
+          />
+        ))}
+      </div>
 
       {user.role !== "CLIENT" && (
         <div className="px-1">

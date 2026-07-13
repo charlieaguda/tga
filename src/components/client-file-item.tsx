@@ -80,17 +80,7 @@ export function ClientFileItem({
   const otherCategories = categories.filter((c) => c.key !== file.category);
 
   return (
-    <div
-      className="flex flex-col gap-1"
-      draggable={canModify}
-      onDragStart={(e) => {
-        e.dataTransfer.setData(
-          "application/json",
-          JSON.stringify({ fileId: file.id, category: file.category }),
-        );
-        e.dataTransfer.effectAllowed = "move";
-      }}
-    >
+    <div className="flex flex-col gap-1">
       <div className="flex items-start gap-2">
         <button
           type="button"
