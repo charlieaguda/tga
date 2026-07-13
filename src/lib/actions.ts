@@ -380,3 +380,9 @@ export async function updateFileDescription(_prev: ActionResult, formData: FormD
 export async function clientFileDelete(fileId: string): Promise<ActionResult> {
   return guard(() => clientFiles.deleteClientFile(id.parse(fileId)));
 }
+
+export async function clientFileMove(fileId: string, newCategoryKey: string): Promise<ActionResult> {
+  return guard(() =>
+    clientFiles.moveClientFile(id.parse(fileId), z.string().trim().min(1).max(64).parse(newCategoryKey)),
+  );
+}

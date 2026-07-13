@@ -7,7 +7,9 @@ import {
   createResumableSession,
   ensureFolder,
   findFileByAppProperty,
+  getFileParents,
   isDriveConfigured,
+  moveFile,
   sharedDriveRootId,
   trashFile,
 } from "@/lib/drive";
@@ -306,5 +308,39 @@ export async function deleteClientFile(fileId: string): Promise<void> {
     entityId: file.id,
     clientId: client.id,
     meta: { name: file.storedName, category: file.category },
+  });
+}
+
+export async function moveClientFile(fileId: string, newCategoryKey: string): Promise<void> {
+  const file = await db.file.findUnique({ where: { id: fileId } });
+  if (!file || !file.clientId || !file.category) throw new ValidationError("File not found");
+  if (file.category === newCategoryKey) throw new ValidationError("File is already in that category");
+
+  const client = await db.client.findUniqueOrThrow({ where: { id: file.clientId } });
+  const oldCategory = await db.category.findUniqueOrThrow({ where: { key: file.category } });
+  const newCategory = await db.category.findUnique({ where: { key: newCategoryKey } });
+  if (!newCategory) throw new ValidationError("Unknown file category");
+
+  const user = await requireUser();
+  const editorHasTask = await resolveEditorHasTask(user, client.id);
+  await authorize("client.file.upload", { client, category: oldCategory, editorHasTask });
+  const actor = await authorize("client.file.upload", { client, category: newCategory, editorHasTask });
+
+  const parents = await getFileParents(file.driveFileId);
+  const currentParent = parents[0];
+  if (!currentParent) throw new ValidationError("Could not resolve the file's current Drive folder");
+
+  const destCategoryFolderId = await ensureClientCategoryFolder(client, newCategory);
+  const destFolderId = await ensureFolder(destCategoryFolderId, currentMonthLabel());
+
+  await moveFile(file.driveFileId, destFolderId, currentParent);
+  await db.file.update({ where: { id: fileId }, data: { category: newCategoryKey } });
+  await logActivity(db, {
+    actorId: actor.id,
+    action: "file.category_changed",
+    entityType: "file",
+    entityId: file.id,
+    clientId: client.id,
+    meta: { from: file.category, to: newCategoryKey },
   });
 }
