@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { TaskStatus } from "@prisma/client";
 import { AddCategoryButton } from "@/components/add-category-button";
 import { ClientFileItem } from "@/components/client-file-item";
+import { ClientFileUploader } from "@/components/file-drop-uploader";
 import { MonthCalendar } from "@/components/month-calendar";
 import { TaskStatusBadge } from "@/components/status-badge";
 import { isOverdue, fmtDate } from "@/lib/format";
@@ -57,6 +58,7 @@ export function ClientHubAccordion({
   canEdit,
   canManage,
   categories,
+  driveConfigured,
 }: {
   clients: ClientWithFilesAndActivity[];
   year: number;
@@ -64,6 +66,7 @@ export function ClientHubAccordion({
   canEdit: boolean;
   canManage: boolean;
   categories: CategoryDef[];
+  driveConfigured: boolean;
 }) {
   return (
     <div className="flex flex-col gap-4">
@@ -76,6 +79,7 @@ export function ClientHubAccordion({
           canEdit={canEdit}
           canManage={canManage}
           categories={categories}
+          driveConfigured={driveConfigured}
         />
       ))}
       {clients.length === 0 && (
@@ -94,6 +98,7 @@ function ClientCard({
   canEdit,
   canManage,
   categories,
+  driveConfigured,
 }: {
   client: ClientWithFilesAndActivity;
   year: number;
@@ -101,6 +106,7 @@ function ClientCard({
   canEdit: boolean;
   canManage: boolean;
   categories: CategoryDef[];
+  driveConfigured: boolean;
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
@@ -294,21 +300,28 @@ function ClientCard({
 
                       {/* Dropdown File List */}
                       {isCatExpanded && (
-                        <ul className="flex flex-col gap-1.5 mt-1 border-t border-slate-100/80 pt-2 dark:border-slate-800/40">
-                          {catFiles.length > 0 ? (
-                            catFiles.map((f) => (
-                              <ClientFileItem
-                                key={f.id}
-                                file={f}
-                                canEdit={canEdit}
-                              />
-                            ))
-                          ) : (
-                            <span className="text-[10px] text-slate-400 dark:text-slate-500 italic pl-1 py-1">
-                              No files uploaded yet.
-                            </span>
+                        <>
+                          <ul className="flex flex-col gap-1.5 mt-1 border-t border-slate-100/80 pt-2 dark:border-slate-800/40">
+                            {catFiles.length > 0 ? (
+                              catFiles.map((f) => (
+                                <ClientFileItem
+                                  key={f.id}
+                                  file={f}
+                                  canEdit={canEdit}
+                                />
+                              ))
+                            ) : (
+                              <span className="text-[10px] text-slate-400 dark:text-slate-500 italic pl-1 py-1">
+                                No files uploaded yet.
+                              </span>
+                            )}
+                          </ul>
+                          {driveConfigured && (
+                            <div className="mt-1">
+                              <ClientFileUploader clientId={client.id} category={category.key} />
+                            </div>
                           )}
-                        </ul>
+                        </>
                       )}
                     </div>
                   );

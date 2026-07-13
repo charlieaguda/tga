@@ -16,7 +16,11 @@ export type JobResource = { managerId: string };
 export type TaskResource = { assigneeId: string | null; job: JobResource };
 export type ClientResource = { id: string };
 export type CategoryResource = { key: string; clientWritable: boolean };
-export type ClientFileResource = { client: ClientResource; category: CategoryResource };
+export type ClientFileResource = {
+  client: ClientResource;
+  category: CategoryResource;
+  editorHasTask?: boolean;
+};
 
 export type Action =
   | "user.manage"
@@ -69,6 +73,7 @@ const policy: Record<Action, (u: SessionUser, resource?: any) => boolean> = {
   "client.file.read": (u, resource: ClientFileResource) => canReadClient(u, resource.client),
   "client.file.upload": (u, resource: ClientFileResource) =>
     u.role === "ADMIN" || u.role === "CEO" || u.role === "MANAGER" ||
+    (u.role === "EDITOR" && resource.editorHasTask === true) ||
     (isOwnClient(u, resource.client) && resource.category.clientWritable),
   "category.write": (u) => u.role !== "CLIENT",
   "job.create": (u) => u.role === "ADMIN" || u.role === "MANAGER",

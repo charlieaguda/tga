@@ -9,6 +9,7 @@ import { isOverdue } from "@/lib/format";
 import { PageHeader, Section, StatTile, EmptyState } from "@/components/ui";
 import { ClientHubAccordion } from "@/components/client-hub-accordion";
 import { listCategories } from "@/lib/services/categories";
+import { isDriveConfigured } from "@/lib/drive";
 
 const include = { job: { include: { client: true } }, assignee: true } satisfies Prisma.TaskInclude;
 const OPEN: TaskStatus[] = ["ASSIGNED", "IN_PROGRESS", "SUBMITTED", "CHANGES_REQUESTED", "APPROVED"];
@@ -36,7 +37,7 @@ async function EditorDashboard(userId: string) {
   const monthStart = new Date(Date.UTC(year, month - 1, 1));
   const monthEnd = new Date(Date.UTC(year, month, 1));
 
-  const [queue, changesRequested, recentlyPosted, clients, categories] = await Promise.all([
+  const [queue, changesRequested, recentlyPosted, clients, categories, driveConfigured] = await Promise.all([
     db.task.findMany({
       where: { assigneeId: userId, status: { in: ["ASSIGNED", "IN_PROGRESS", "SUBMITTED"] } },
       include,
@@ -85,6 +86,7 @@ async function EditorDashboard(userId: string) {
       orderBy: { name: "asc" },
     }),
     listCategories(),
+    isDriveConfigured(),
   ]);
 
   const clientIds = clients.map((c) => c.id);
@@ -123,6 +125,7 @@ async function EditorDashboard(userId: string) {
           canEdit={true}
           canManage={false}
           categories={categories}
+          driveConfigured={driveConfigured}
         />
       </Section>
       {changesRequested.length > 0 && (
@@ -147,7 +150,7 @@ async function ManagerDashboard(userId: string) {
   const monthStart = new Date(Date.UTC(year, month - 1, 1));
   const monthEnd = new Date(Date.UTC(year, month, 1));
 
-  const [awaitingReview, toPost, myOpen, drafts, recentlyPosted, clients, categories] = await Promise.all([
+  const [awaitingReview, toPost, myOpen, drafts, recentlyPosted, clients, categories, driveConfigured] = await Promise.all([
     db.task.findMany({
       where: { job: { managerId: userId }, status: "SUBMITTED" },
       include,
@@ -204,6 +207,7 @@ async function ManagerDashboard(userId: string) {
       orderBy: { name: "asc" },
     }),
     listCategories(),
+    isDriveConfigured(),
   ]);
 
   const clientIds = clients.map((c) => c.id);
@@ -245,6 +249,7 @@ async function ManagerDashboard(userId: string) {
           canEdit={true}
           canManage={true}
           categories={categories}
+          driveConfigured={driveConfigured}
         />
       </Section>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

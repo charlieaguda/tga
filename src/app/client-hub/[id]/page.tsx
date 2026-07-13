@@ -42,7 +42,7 @@ export default async function ClientHubDetailPage(props: {
 
   const canManage = user.role === "ADMIN" || user.role === "CEO" || user.role === "MANAGER";
   const canUploadCategory = (category: { clientWritable: boolean }) =>
-    canManage || (user.role === "CLIENT" && category.clientWritable);
+    canManage || user.role === "EDITOR" || (user.role === "CLIENT" && category.clientWritable);
 
   const categories = await listCategories();
   const files = await db.file.findMany({

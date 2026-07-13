@@ -55,7 +55,14 @@ async function getUploadableClient(clientId: string, categoryKey: string) {
   if (!client) throw new ValidationError("Client not found");
   const category = await db.category.findUnique({ where: { key: categoryKey } });
   if (!category) throw new ValidationError("Unknown file category");
-  const actor = await authorize("client.file.upload", { client, category });
+
+  const user = await requireUser();
+  const editorHasTask =
+    user.role === "EDITOR"
+      ? (await db.task.count({ where: { assigneeId: user.id, job: { clientId } } })) > 0
+      : undefined;
+
+  const actor = await authorize("client.file.upload", { client, category, editorHasTask });
   if (!client.isActive || client.offboardedAt)
     throw new ConflictError("This client is offboarded — uploads are disabled");
   return { client, category, actor };
@@ -122,9 +129,15 @@ export async function completeClientUpload(uploadId: string, driveFileId: string
     throw new ValidationError("This upload session is not a client-hub upload");
   const category = await db.category.findUnique({ where: { key: session.category } });
   if (!category) throw new ValidationError("Unknown file category");
+  const user = await requireUser();
+  const editorHasTask =
+    user.role === "EDITOR"
+      ? (await db.task.count({ where: { assigneeId: user.id, job: { clientId: session.client.id } } })) > 0
+      : undefined;
   const actor = await authorize("client.file.upload", {
     client: session.client,
     category,
+    editorHasTask,
   });
   if (session.editorId !== actor.id && actor.role !== "ADMIN")
     throw new ForbiddenError("This upload belongs to another user");
