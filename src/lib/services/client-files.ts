@@ -1,6 +1,6 @@
 import type { Category, Client, Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
-import { authorize, requireUser } from "@/lib/permissions";
+import { authorize, requireUser, type SessionUser } from "@/lib/permissions";
 import { logActivity } from "@/lib/activity";
 import { ConflictError, ForbiddenError, ValidationError } from "@/lib/errors";
 import {
@@ -50,6 +50,15 @@ export async function ensureClientCategoryFolder(client: Client, category: Categ
   return categoryFolder;
 }
 
+async function resolveEditorHasTask(user: SessionUser, clientId: string): Promise<boolean | undefined> {
+  if (user.role !== "EDITOR") return undefined;
+  return (await db.task.count({ where: { assigneeId: user.id, job: { clientId } } })) > 0;
+}
+
+function currentMonthLabel(date: Date = new Date()): string {
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
 async function getUploadableClient(clientId: string, categoryKey: string) {
   const client = await db.client.findUnique({ where: { id: clientId } });
   if (!client) throw new ValidationError("Client not found");
@@ -57,10 +66,7 @@ async function getUploadableClient(clientId: string, categoryKey: string) {
   if (!category) throw new ValidationError("Unknown file category");
 
   const user = await requireUser();
-  const editorHasTask =
-    user.role === "EDITOR"
-      ? (await db.task.count({ where: { assigneeId: user.id, job: { clientId } } })) > 0
-      : undefined;
+  const editorHasTask = await resolveEditorHasTask(user, clientId);
 
   const actor = await authorize("client.file.upload", { client, category, editorHasTask });
   if (!client.isActive || client.offboardedAt)
@@ -78,7 +84,6 @@ export async function createClientUploadSession(
   assertValidUploadDeclaration(input);
 
   const { client, category, actor } = await getUploadableClient(clientId, categoryKey);
-  const folderId = await ensureClientCategoryFolder(client, category);
 
   const original = sanitizeFileName(input.fileName);
   const storedName = `${slugify(client.name, 30)}-${slugify(category.label, 40)}-${original}`;
@@ -93,6 +98,9 @@ export async function createClientUploadSession(
       declaredMime: input.mimeType,
     },
   });
+
+  const categoryFolderId = await ensureClientCategoryFolder(client, category);
+  const folderId = await ensureFolder(categoryFolderId, currentMonthLabel(session.createdAt));
 
   // The Drive session URI is returned to the uploader only — never logged/persisted.
   const sessionUri = await createResumableSession({
@@ -130,10 +138,7 @@ export async function completeClientUpload(uploadId: string, driveFileId: string
   const category = await db.category.findUnique({ where: { key: session.category } });
   if (!category) throw new ValidationError("Unknown file category");
   const user = await requireUser();
-  const editorHasTask =
-    user.role === "EDITOR"
-      ? (await db.task.count({ where: { assigneeId: user.id, job: { clientId: session.client.id } } })) > 0
-      : undefined;
+  const editorHasTask = await resolveEditorHasTask(user, session.client.id);
   const actor = await authorize("client.file.upload", {
     client: session.client,
     category,
@@ -155,11 +160,14 @@ async function verifyAndRecordClientUpload(
   const folder = await db.clientCategoryFolder.findUnique({
     where: { clientId_category: { clientId: session.client.id, category: session.category } },
   });
+  const expectedFolderId = folder
+    ? await ensureFolder(folder.driveFolderId, currentMonthLabel(session.createdAt))
+    : null;
 
   const info = await verifyDriveUpload({
     driveFileId,
     uploadSessionId: session.id,
-    expectedFolderId: folder?.driveFolderId ?? null,
+    expectedFolderId,
     declaredSize: session.declaredSize,
   });
 
