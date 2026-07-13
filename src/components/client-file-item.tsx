@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { updateFileDescription } from "@/lib/actions";
+import { useRouter } from "next/navigation";
+import { updateFileDescription, clientFileDelete, clientFileMove } from "@/lib/actions";
 import { FileLink } from "@/components/ui";
+import { FilePreviewModal } from "@/components/file-preview-modal";
 
 interface ClientFile {
   id: string;
@@ -10,18 +12,28 @@ interface ClientFile {
   storedName: string;
   sizeBytes: bigint | number;
   description: string | null;
+  category: string | null;
+  mimeType: string;
 }
 
 export function ClientFileItem({
   file,
   canEdit,
+  canModify,
+  categories,
 }: {
   file: ClientFile;
   canEdit: boolean;
+  canModify: boolean;
+  categories: { key: string; label: string }[];
 }) {
+  const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
   const [description, setDescription] = useState(file.description);
+  const [showPreview, setShowPreview] = useState(false);
+  const [thumbFailed, setThumbFailed] = useState(false);
   const [pending, startTransition] = useTransition();
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const getDriveViewLink = (driveFileId: string) => {
     return `https://drive.google.com/file/d/${encodeURIComponent(driveFileId)}/view`;
@@ -41,30 +53,131 @@ export function ClientFileItem({
     });
   };
 
+  const handleDelete = () => {
+    if (
+      !window.confirm(
+        `Delete "${file.storedName}"? It moves to Google Drive's own Trash, recoverable there for a while.`,
+      )
+    )
+      return;
+    setActionError(null);
+    startTransition(async () => {
+      const res = await clientFileDelete(file.id);
+      if (!res.ok) setActionError(res.error ?? "Failed to delete");
+      else router.refresh();
+    });
+  };
+
+  const handleMove = (newCategoryKey: string) => {
+    setActionError(null);
+    startTransition(async () => {
+      const res = await clientFileMove(file.id, newCategoryKey);
+      if (!res.ok) setActionError(res.error ?? "Failed to move");
+      else router.refresh();
+    });
+  };
+
+  const otherCategories = categories.filter((c) => c.key !== file.category);
+
   return (
-    <div className="flex flex-col gap-1">
-      <FileLink
-        href={getDriveViewLink(file.driveFileId)}
-        name={file.storedName}
-        sizeBytes={file.sizeBytes}
-        description={isEditing ? null : description}
-        extra={
-          canEdit && (
-            <button
-              type="button"
-              onClick={() => setIsEditing(!isEditing)}
-              className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-300 transition-colors"
-              title="Edit description"
-            >
-              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+    <div
+      className="flex flex-col gap-1"
+      draggable={canModify}
+      onDragStart={(e) => {
+        e.dataTransfer.setData(
+          "application/json",
+          JSON.stringify({ fileId: file.id, category: file.category }),
+        );
+        e.dataTransfer.effectAllowed = "move";
+      }}
+    >
+      <div className="flex items-start gap-2">
+        <button
+          type="button"
+          onClick={() => setShowPreview(true)}
+          className="shrink-0 overflow-hidden rounded-lg border border-slate-200/60 dark:border-slate-800/60"
+          title="Preview"
+        >
+          {thumbFailed ? (
+            <div className="flex h-10 w-10 items-center justify-center bg-slate-50 text-slate-400 dark:bg-slate-800/40 dark:text-slate-500">
+              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+                <path d="M7 3h7l5 5v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" strokeLinejoin="round" />
+                <path d="M14 3v5h5" strokeLinejoin="round" />
               </svg>
-            </button>
-          )
-        }
-      />
+            </div>
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={`/api/client-files/${file.id}/thumbnail`}
+              alt=""
+              className="h-10 w-10 object-cover"
+              onError={() => setThumbFailed(true)}
+            />
+          )}
+        </button>
+        <div className="min-w-0 flex-1">
+          <FileLink
+            href={getDriveViewLink(file.driveFileId)}
+            name={file.storedName}
+            sizeBytes={file.sizeBytes}
+            description={isEditing ? null : description}
+            extra={
+              <div className="flex items-center gap-1">
+                {canEdit && (
+                  <button
+                    type="button"
+                    onClick={() => setIsEditing(!isEditing)}
+                    className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-300 transition-colors"
+                    title="Edit description"
+                  >
+                    <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                    </svg>
+                  </button>
+                )}
+                {canModify && otherCategories.length > 0 && (
+                  <select
+                    value=""
+                    disabled={pending}
+                    onChange={(e) => {
+                      if (e.target.value) handleMove(e.target.value);
+                    }}
+                    title="Move to another category"
+                    className="rounded-lg border border-slate-200/80 bg-white/50 px-1.5 py-1 text-[10px] dark:border-slate-800/80 dark:bg-slate-900/50"
+                  >
+                    <option value="">Move to…</option>
+                    {otherCategories.map((c) => (
+                      <option key={c.key} value={c.key}>
+                        {c.label}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                {canModify && (
+                  <button
+                    type="button"
+                    onClick={handleDelete}
+                    disabled={pending}
+                    className="rounded-lg p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:text-slate-500 dark:hover:bg-red-950/40 dark:hover:text-red-400 transition-colors"
+                    title="Delete file"
+                  >
+                    <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M6 7h12M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3m2 0v13a1 1 0 01-1 1H8a1 1 0 01-1-1V7h10Z"
+                      />
+                    </svg>
+                  </button>
+                )}
+              </div>
+            }
+          />
+        </div>
+      </div>
+      {actionError && <p className="pl-12 text-xs text-red-600">{actionError}</p>}
       {isEditing && (
-        <form onSubmit={handleSave} className="mt-1 flex items-center gap-2 pl-6 animate-in fade-in slide-in-from-top-1 duration-200">
+        <form onSubmit={handleSave} className="mt-1 flex items-center gap-2 pl-12 animate-in fade-in slide-in-from-top-1 duration-200">
           <input type="hidden" name="fileId" value={file.id} />
           <input
             name="description"
@@ -90,6 +203,12 @@ export function ClientFileItem({
             Cancel
           </button>
         </form>
+      )}
+      {showPreview && (
+        <FilePreviewModal
+          file={{ id: file.id, driveFileId: file.driveFileId, storedName: file.storedName, mimeType: file.mimeType }}
+          onClose={() => setShowPreview(false)}
+        />
       )}
     </div>
   );
