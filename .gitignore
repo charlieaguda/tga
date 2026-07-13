@@ -53,3 +53,6 @@ next-env.d.ts
 
 # supabase CLI local state
 /supabase/.temp
+
+# superpowers subagent-driven-development scratch (ledger, task briefs, review packages)
+/.superpowers/
