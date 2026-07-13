@@ -20,10 +20,16 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ fileId: st
         "Content-Type": content.contentType,
         "Content-Length": String(content.sizeBytes),
         "Cache-Control": "private, max-age=3600",
+        "X-Content-Type-Options": "nosniff",
+        "Content-Security-Policy": "script-src 'none'; sandbox;",
       },
     });
   } catch (err) {
     const status = errorToStatus(err);
-    return NextResponse.json({ error: (err as Error).message }, { status });
+    if (status === 500) console.error("[client-files] content fetch failed:", err);
+    return NextResponse.json(
+      { error: status === 500 ? "File could not be loaded" : (err as Error).message },
+      { status },
+    );
   }
 }

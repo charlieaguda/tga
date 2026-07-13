@@ -298,6 +298,8 @@ export async function deleteClientFile(fileId: string): Promise<void> {
   const user = await requireUser();
   const editorHasTask = await resolveEditorHasTask(user, client.id);
   const actor = await authorize("client.file.upload", { client, category, editorHasTask });
+  if (!client.isActive || client.offboardedAt)
+    throw new ConflictError("This client is offboarded — file changes are disabled");
 
   await trashFile(file.driveFileId);
   await db.file.delete({ where: { id: fileId } });
@@ -325,6 +327,8 @@ export async function moveClientFile(fileId: string, newCategoryKey: string): Pr
   const editorHasTask = await resolveEditorHasTask(user, client.id);
   await authorize("client.file.upload", { client, category: oldCategory, editorHasTask });
   const actor = await authorize("client.file.upload", { client, category: newCategory, editorHasTask });
+  if (!client.isActive || client.offboardedAt)
+    throw new ConflictError("This client is offboarded — file changes are disabled");
 
   const parents = await getFileParents(file.driveFileId);
   const currentParent = parents[0];

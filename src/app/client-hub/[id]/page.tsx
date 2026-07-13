@@ -43,7 +43,8 @@ export default async function ClientHubDetailPage(props: {
 
   const canManage = user.role === "ADMIN" || user.role === "CEO" || user.role === "MANAGER";
   const canUploadCategory = (category: { clientWritable: boolean }) =>
-    canManage || user.role === "EDITOR" || (user.role === "CLIENT" && category.clientWritable);
+    !client.offboardedAt &&
+    (canManage || user.role === "EDITOR" || (user.role === "CLIENT" && category.clientWritable));
 
   const categories = await listCategories();
   const files = await db.file.findMany({
@@ -174,7 +175,7 @@ export default async function ClientHubDetailPage(props: {
                 ))}
               </ul>
             )}
-            {canUploadCategory(category) && driveConfigured && !client.offboardedAt && (
+            {canUploadCategory(category) && driveConfigured && (
               <div className="mt-3">
                 <ClientFileUploader clientId={client.id} category={category.key} />
               </div>

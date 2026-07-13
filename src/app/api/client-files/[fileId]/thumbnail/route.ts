@@ -18,10 +18,18 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ fileId: st
     if (!thumb) return NextResponse.json({ error: "No thumbnail available" }, { status: 404 });
 
     return new NextResponse(thumb.body, {
-      headers: { "Content-Type": thumb.contentType, "Cache-Control": "private, max-age=3600" },
+      headers: {
+        "Content-Type": thumb.contentType,
+        "Cache-Control": "private, max-age=3600",
+        "X-Content-Type-Options": "nosniff",
+      },
     });
   } catch (err) {
     const status = errorToStatus(err);
-    return NextResponse.json({ error: (err as Error).message }, { status });
+    if (status === 500) console.error("[client-files] thumbnail fetch failed:", err);
+    return NextResponse.json(
+      { error: status === 500 ? "Thumbnail could not be loaded" : (err as Error).message },
+      { status },
+    );
   }
 }
