@@ -98,7 +98,7 @@ export function MonthCalendar({
               dateKey={dateKey}
               active={active}
               tasks={taskDays?.[dateKey]}
-              fileEvents={fileActivityDays?.[dateKey]}
+              fileGroups={fileActivityDays?.[dateKey]}
               canMarkUsed={canMarkUsed}
             />
           );

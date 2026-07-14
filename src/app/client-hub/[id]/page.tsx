@@ -75,15 +75,19 @@ export default async function ClientHubDetailPage(props: {
   if (isStaff) {
     const activity = await db.activityLog.findMany({
       where: { clientId: id, action: "file.uploaded", createdAt: { gte: monthStart, lt: monthEnd } },
-      select: { id: true, entityId: true, action: true, meta: true, createdAt: true, actor: { select: { name: true } } },
+      select: { entityId: true, createdAt: true, actor: { select: { name: true } } },
       orderBy: { createdAt: "asc" },
     });
-    const uploadedFiles = await db.file.findMany({
-      where: { id: { in: activity.map((a) => a.entityId) } },
-      select: { id: true, markedUsed: true },
-    });
-    const usedByFileId = new Map(uploadedFiles.map((f) => [f.id, f.markedUsed]));
-    fileActivityDays = buildFileActivityDaysMap(activity, categories, usedByFileId);
+    const [uploadedFiles, categoryFolders] = await Promise.all([
+      db.file.findMany({
+        where: { id: { in: activity.map((a) => a.entityId) } },
+        select: { id: true, category: true, storedName: true, markedUsed: true },
+      }),
+      db.clientCategoryFolder.findMany({ where: { clientId: id }, select: { category: true, driveFolderId: true } }),
+    ]);
+    const filesById = new Map(uploadedFiles.map((f) => [f.id, f]));
+    const folderIdByCategory = new Map(categoryFolders.map((c) => [c.category, c.driveFolderId]));
+    fileActivityDays = buildFileActivityDaysMap(activity, categories, filesById, folderIdByCategory);
     activeDays = new Set(Object.keys(fileActivityDays));
 
     const monthTasks = await db.task.findMany({

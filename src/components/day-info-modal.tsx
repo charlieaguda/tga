@@ -3,35 +3,76 @@
 import Link from "next/link";
 import { TaskStatusBadge } from "@/components/status-badge";
 import { ActionButton } from "@/components/action-button";
-import { clientFileSetUsed } from "@/lib/actions";
+import { clientFilesSetUsed } from "@/lib/actions";
 import { fmtDate } from "@/lib/format";
 import type { DayTaskActivity } from "@/lib/task-calendar";
-import type { FileActivityEntry } from "@/lib/file-activity-calendar";
+import type { CategoryUploadGroup } from "@/lib/file-activity-calendar";
 
-function FileEventRows({ events, canMarkUsed }: { events: FileActivityEntry[]; canMarkUsed: boolean }) {
-  if (events.length === 0) return null;
+function driveFolderLink(folderId: string): string {
+  return `https://drive.google.com/drive/folders/${encodeURIComponent(folderId)}`;
+}
+
+function CategoryGroupRows({ groups, canMarkUsed }: { groups: CategoryUploadGroup[]; canMarkUsed: boolean }) {
+  if (groups.length === 0) return null;
   return (
     <div>
       <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
         Uploads
       </p>
-      <ul className="flex flex-col gap-2">
-        {events.map((e) => (
-          <li key={e.id} className="flex items-center justify-between gap-2 text-sm text-slate-700 dark:text-slate-300">
-            <span className="min-w-0 flex-1">
-              <span className="font-medium">{e.actorName}</span> {e.description}
-            </span>
-            {canMarkUsed && (
-              <span className="shrink-0">
-                <ActionButton
-                  action={clientFileSetUsed.bind(null, e.fileId, !e.markedUsed)}
-                  label={e.markedUsed ? "Used ✓" : "Mark used"}
-                  variant={e.markedUsed ? "success" : "neutral"}
-                />
-              </span>
-            )}
-          </li>
-        ))}
+      <ul className="flex flex-col gap-2.5">
+        {groups.map((g) => {
+          const folderHref = g.driveFolderId ? driveFolderLink(g.driveFolderId) : null;
+          return (
+            <li key={g.categoryKey} className="rounded-lg border border-slate-100 p-2 dark:border-slate-800">
+              <div className="flex items-center justify-between gap-2">
+                {folderHref ? (
+                  <a
+                    href={folderHref}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    className="text-sm font-semibold text-slate-700 hover:text-brand-600 dark:text-slate-300 dark:hover:text-brand-400"
+                  >
+                    {g.categoryLabel}
+                  </a>
+                ) : (
+                  <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">{g.categoryLabel}</span>
+                )}
+                {canMarkUsed && (
+                  <ActionButton
+                    action={clientFilesSetUsed.bind(
+                      null,
+                      g.files.map((f) => f.fileId),
+                      !g.allUsed,
+                    )}
+                    label={g.allUsed ? "Used ✓" : "Mark used"}
+                    variant={g.allUsed ? "success" : "neutral"}
+                  />
+                )}
+              </div>
+              <ul className="mt-1.5 flex flex-col gap-0.5 pl-0.5">
+                {g.files.map((f) =>
+                  folderHref ? (
+                    <li key={f.fileId}>
+                      <a
+                        href={folderHref}
+                        target="_blank"
+                        rel="noreferrer noopener"
+                        className="truncate text-xs text-slate-500 hover:text-brand-600 dark:text-slate-400 dark:hover:text-brand-400"
+                      >
+                        {f.name}
+                      </a>
+                      <span className="text-slate-400 dark:text-slate-500"> — {f.actorName}</span>
+                    </li>
+                  ) : (
+                    <li key={f.fileId} className="truncate text-xs text-slate-500 dark:text-slate-400">
+                      {f.name} — {f.actorName}
+                    </li>
+                  ),
+                )}
+              </ul>
+            </li>
+          );
+        })}
       </ul>
     </div>
   );
@@ -66,18 +107,18 @@ function TaskRows({ label, tasks }: { label: string; tasks: DayTaskActivity["ini
 
 export function DayInfoModal({
   dateLabel,
-  fileEvents,
+  fileGroups,
   tasks,
   canMarkUsed = false,
   onClose,
 }: {
   dateLabel: string;
-  fileEvents: FileActivityEntry[];
+  fileGroups: CategoryUploadGroup[];
   tasks: DayTaskActivity;
   canMarkUsed?: boolean;
   onClose: () => void;
 }) {
-  const isEmpty = fileEvents.length === 0 && tasks.initiated.length === 0 && tasks.due.length === 0;
+  const isEmpty = fileGroups.length === 0 && tasks.initiated.length === 0 && tasks.due.length === 0;
 
   return (
     <div
@@ -100,7 +141,7 @@ export function DayInfoModal({
           </button>
         </div>
         <div className="flex flex-col gap-3">
-          <FileEventRows events={fileEvents} canMarkUsed={canMarkUsed} />
+          <CategoryGroupRows groups={fileGroups} canMarkUsed={canMarkUsed} />
           <TaskRows label="Initiated" tasks={tasks.initiated} />
           <TaskRows label="Due" tasks={tasks.due} />
           {isEmpty && <p className="text-sm text-slate-400 dark:text-slate-500">Nothing on this day.</p>}

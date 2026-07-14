@@ -313,19 +313,24 @@ export async function deleteClientFile(fileId: string): Promise<void> {
   });
 }
 
-export async function setClientFileUsed(fileId: string, used: boolean): Promise<void> {
+/** Bulk-marks a set of client-hub files (typically one day's uploads to one category) as used/not used together. */
+export async function setClientFilesUsed(fileIds: string[], used: boolean): Promise<void> {
   const actor = await authorize("client.file.markUsed");
-  const file = await db.file.findUnique({ where: { id: fileId } });
-  if (!file || !file.clientId) throw new ValidationError("File not found");
+  const files = await db.file.findMany({ where: { id: { in: fileIds }, clientId: { not: null } } });
+  if (files.length === 0) throw new ValidationError("No files found");
 
-  await db.file.update({ where: { id: fileId }, data: { markedUsed: used } });
-  await logActivity(db, {
-    actorId: actor.id,
-    action: used ? "file.marked_used" : "file.marked_unused",
-    entityType: "file",
-    entityId: file.id,
-    clientId: file.clientId,
-    meta: { name: file.storedName },
+  await db.$transaction(async (tx) => {
+    for (const file of files) {
+      await tx.file.update({ where: { id: file.id }, data: { markedUsed: used } });
+      await logActivity(tx, {
+        actorId: actor.id,
+        action: used ? "file.marked_used" : "file.marked_unused",
+        entityType: "file",
+        entityId: file.id,
+        clientId: file.clientId!,
+        meta: { name: file.storedName },
+      });
+    }
   });
 }
 

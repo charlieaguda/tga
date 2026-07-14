@@ -387,6 +387,6 @@ export async function clientFileMove(fileId: string, newCategoryKey: string): Pr
   );
 }
 
-export async function clientFileSetUsed(fileId: string, used: boolean): Promise<ActionResult> {
-  return guard(() => clientFiles.setClientFileUsed(id.parse(fileId), used));
+export async function clientFilesSetUsed(fileIds: string[], used: boolean): Promise<ActionResult> {
+  return guard(() => clientFiles.setClientFilesUsed(z.array(id).min(1).parse(fileIds), used));
 }

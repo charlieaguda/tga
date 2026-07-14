@@ -97,18 +97,35 @@ async function EditorDashboard(userId: string) {
       action: "file.uploaded",
       createdAt: { gte: monthStart, lt: monthEnd },
     },
-    select: { id: true, clientId: true, entityId: true, action: true, meta: true, createdAt: true, actor: { select: { name: true } } },
+    select: { clientId: true, entityId: true, createdAt: true, actor: { select: { name: true } } },
     orderBy: { createdAt: "asc" },
   });
-  const uploadedFiles = await db.file.findMany({
-    where: { id: { in: activity.map((a) => a.entityId) } },
-    select: { id: true, markedUsed: true },
-  });
-  const usedByFileId = new Map(uploadedFiles.map((f) => [f.id, f.markedUsed]));
+  const [uploadedFiles, categoryFolders] = await Promise.all([
+    db.file.findMany({
+      where: { id: { in: activity.map((a) => a.entityId) } },
+      select: { id: true, category: true, storedName: true, markedUsed: true },
+    }),
+    db.clientCategoryFolder.findMany({
+      where: { clientId: { in: clientIds } },
+      select: { clientId: true, category: true, driveFolderId: true },
+    }),
+  ]);
+  const filesById = new Map(uploadedFiles.map((f) => [f.id, f]));
+  const folderIdByClient = new Map<string, Map<string, string>>();
+  for (const cf of categoryFolders) {
+    const perClient = folderIdByClient.get(cf.clientId) ?? new Map();
+    folderIdByClient.set(cf.clientId, perClient);
+    perClient.set(cf.category, cf.driveFolderId);
+  }
 
   const clientsWithActivity = clients.map((c) => {
     const clientActivity = activity.filter((a) => a.clientId === c.id);
-    const fileActivityDays = buildFileActivityDaysMap(clientActivity, categories, usedByFileId);
+    const fileActivityDays = buildFileActivityDaysMap(
+      clientActivity,
+      categories,
+      filesById,
+      folderIdByClient.get(c.id) ?? new Map(),
+    );
     return {
       ...c,
       activeDays: Object.keys(fileActivityDays),
@@ -225,18 +242,35 @@ async function ManagerDashboard(userId: string) {
       action: "file.uploaded",
       createdAt: { gte: monthStart, lt: monthEnd },
     },
-    select: { id: true, clientId: true, entityId: true, action: true, meta: true, createdAt: true, actor: { select: { name: true } } },
+    select: { clientId: true, entityId: true, createdAt: true, actor: { select: { name: true } } },
     orderBy: { createdAt: "asc" },
   });
-  const uploadedFiles = await db.file.findMany({
-    where: { id: { in: activity.map((a) => a.entityId) } },
-    select: { id: true, markedUsed: true },
-  });
-  const usedByFileId = new Map(uploadedFiles.map((f) => [f.id, f.markedUsed]));
+  const [uploadedFiles, categoryFolders] = await Promise.all([
+    db.file.findMany({
+      where: { id: { in: activity.map((a) => a.entityId) } },
+      select: { id: true, category: true, storedName: true, markedUsed: true },
+    }),
+    db.clientCategoryFolder.findMany({
+      where: { clientId: { in: clientIds } },
+      select: { clientId: true, category: true, driveFolderId: true },
+    }),
+  ]);
+  const filesById = new Map(uploadedFiles.map((f) => [f.id, f]));
+  const folderIdByClient = new Map<string, Map<string, string>>();
+  for (const cf of categoryFolders) {
+    const perClient = folderIdByClient.get(cf.clientId) ?? new Map();
+    folderIdByClient.set(cf.clientId, perClient);
+    perClient.set(cf.category, cf.driveFolderId);
+  }
 
   const clientsWithActivity = clients.map((c) => {
     const clientActivity = activity.filter((a) => a.clientId === c.id);
-    const fileActivityDays = buildFileActivityDaysMap(clientActivity, categories, usedByFileId);
+    const fileActivityDays = buildFileActivityDaysMap(
+      clientActivity,
+      categories,
+      filesById,
+      folderIdByClient.get(c.id) ?? new Map(),
+    );
     return {
       ...c,
       activeDays: Object.keys(fileActivityDays),
