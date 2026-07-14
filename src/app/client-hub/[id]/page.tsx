@@ -11,7 +11,7 @@ import { MonthCalendar } from "@/components/month-calendar";
 import { isDriveConfigured } from "@/lib/drive";
 import { fmtDate } from "@/lib/format";
 import { buildTaskDaysMap } from "@/lib/task-calendar";
-import { FILE_ACTIVITY_ACTIONS, buildFileActivityDaysMap, type FileActivityDaysMap } from "@/lib/file-activity-calendar";
+import { buildFileActivityDaysMap, type FileActivityDaysMap } from "@/lib/file-activity-calendar";
 import { Section } from "@/components/ui";
 
 const inputCls =
@@ -74,14 +74,12 @@ export default async function ClientHubDetailPage(props: {
 
   if (isStaff) {
     const activity = await db.activityLog.findMany({
-      where: { clientId: id, action: { in: [...FILE_ACTIVITY_ACTIONS] }, createdAt: { gte: monthStart, lt: monthEnd } },
+      where: { clientId: id, action: "file.uploaded", createdAt: { gte: monthStart, lt: monthEnd } },
       select: { id: true, action: true, meta: true, createdAt: true, actor: { select: { name: true } } },
       orderBy: { createdAt: "asc" },
     });
-    activeDays = new Set(
-      activity.filter((a) => a.action === "file.uploaded").map((a) => a.createdAt.toISOString().slice(0, 10)),
-    );
     fileActivityDays = buildFileActivityDaysMap(activity, categories);
+    activeDays = new Set(Object.keys(fileActivityDays));
 
     const monthTasks = await db.task.findMany({
       where: {

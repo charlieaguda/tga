@@ -11,7 +11,7 @@ function FileEventRows({ events }: { events: FileActivityEntry[] }) {
   return (
     <div>
       <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
-        Client hub activity
+        Uploads
       </p>
       <ul className="flex flex-col gap-1.5">
         {events.map((e) => (

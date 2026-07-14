@@ -89,7 +89,7 @@ const policy: Record<Action, (u: SessionUser, resource?: any) => boolean> = {
   "review.decide": (u, task: TaskResource) => managesTask(u, task),
   "comment.create": (u, task: TaskResource) => isInternalReader(u) || isAssignee(u, task),
   "dashboard.viewAll": (u) => u.role !== "EDITOR" && u.role !== "CLIENT",
-  "auditlog.read": (u) => u.role === "ADMIN" || u.role === "CEO",
+  "auditlog.read": (u) => u.role !== "CLIENT",
   "drive.manage": (u) => u.role === "ADMIN",
   "client.assignDefaults": (u) => u.role === "ADMIN",
 };

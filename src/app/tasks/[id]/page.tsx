@@ -20,6 +20,7 @@ import { Uploader } from "@/components/uploader";
 import { TaskAttachmentUploader } from "@/components/file-drop-uploader";
 import { driveViewLink, isDriveConfigured } from "@/lib/drive";
 import { fmtDate, fmtDateTime, isOverdue } from "@/lib/format";
+import { describeActivity } from "@/lib/activity-descriptions";
 import { Section, FileLink } from "@/components/ui";
 
 const inputCls =
@@ -351,25 +352,3 @@ export default async function TaskPage(props: { params: Promise<{ id: string }> 
   );
 }
 
-function describeActivity(action: string, meta: Record<string, unknown> | null): string {
-  switch (action) {
-    case "task.created":
-      return "created the task";
-    case "task.updated":
-      return "edited the brief";
-    case "task.status_changed":
-      return `moved the task from ${String(meta?.from ?? "?").toLowerCase().replaceAll("_", " ")} to ${String(meta?.to ?? "?").toLowerCase().replaceAll("_", " ")}`;
-    case "task.reassigned":
-      return "reassigned the task";
-    case "submission.round_opened":
-      return `opened round ${meta?.round ?? "?"}`;
-    case "review.approved":
-      return `approved round ${meta?.round ?? "?"}`;
-    case "review.changes_requested":
-      return `requested changes on round ${meta?.round ?? "?"}`;
-    case "file.uploaded":
-      return "uploaded a file";
-    default:
-      return action;
-  }
-}

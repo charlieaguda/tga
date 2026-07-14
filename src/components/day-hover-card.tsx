@@ -35,7 +35,7 @@ function FileEventLines({ events }: { events: FileActivityEntry[] }) {
   return (
     <div>
       <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
-        Client hub activity
+        Uploads
       </p>
       <ul className="mt-0.5 flex flex-col gap-0.5">
         {shown.map((e) => (

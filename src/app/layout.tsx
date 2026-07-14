@@ -68,6 +68,7 @@ export default async function RootLayout({
               <NavLink href="/dashboard">Dashboard</NavLink>
               {user.role !== "CLIENT" && <NavLink href="/jobs">Jobs</NavLink>}
               <NavLink href="/client-hub">Client Hub</NavLink>
+              {user.role !== "CLIENT" && <NavLink href="/activity-logs">Activity Logs</NavLink>}
               {(user.role === "ADMIN" || user.role === "MANAGER") && (
                 <NavLink href="/clients">Clients</NavLink>
               )}

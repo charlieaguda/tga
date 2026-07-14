@@ -10,7 +10,7 @@ import { PageHeader, Section, StatTile, EmptyState } from "@/components/ui";
 import { ClientHubAccordion } from "@/components/client-hub-accordion";
 import { listCategories } from "@/lib/services/categories";
 import { isDriveConfigured } from "@/lib/drive";
-import { FILE_ACTIVITY_ACTIONS, buildFileActivityDaysMap } from "@/lib/file-activity-calendar";
+import { buildFileActivityDaysMap } from "@/lib/file-activity-calendar";
 
 const include = { job: { include: { client: true } }, assignee: true } satisfies Prisma.TaskInclude;
 const OPEN: TaskStatus[] = ["ASSIGNED", "IN_PROGRESS", "SUBMITTED", "CHANGES_REQUESTED", "APPROVED"];
@@ -94,7 +94,7 @@ async function EditorDashboard(userId: string) {
   const activity = await db.activityLog.findMany({
     where: {
       clientId: { in: clientIds },
-      action: { in: [...FILE_ACTIVITY_ACTIONS] },
+      action: "file.uploaded",
       createdAt: { gte: monthStart, lt: monthEnd },
     },
     select: { id: true, clientId: true, action: true, meta: true, createdAt: true, actor: { select: { name: true } } },
@@ -103,13 +103,11 @@ async function EditorDashboard(userId: string) {
 
   const clientsWithActivity = clients.map((c) => {
     const clientActivity = activity.filter((a) => a.clientId === c.id);
-    const activeDays = clientActivity
-      .filter((a) => a.action === "file.uploaded")
-      .map((a) => a.createdAt.toISOString().slice(0, 10));
+    const fileActivityDays = buildFileActivityDaysMap(clientActivity, categories);
     return {
       ...c,
-      activeDays,
-      fileActivityDays: buildFileActivityDaysMap(clientActivity, categories),
+      activeDays: Object.keys(fileActivityDays),
+      fileActivityDays,
     };
   });
 
@@ -218,7 +216,7 @@ async function ManagerDashboard(userId: string) {
   const activity = await db.activityLog.findMany({
     where: {
       clientId: { in: clientIds },
-      action: { in: [...FILE_ACTIVITY_ACTIONS] },
+      action: "file.uploaded",
       createdAt: { gte: monthStart, lt: monthEnd },
     },
     select: { id: true, clientId: true, action: true, meta: true, createdAt: true, actor: { select: { name: true } } },
@@ -227,13 +225,11 @@ async function ManagerDashboard(userId: string) {
 
   const clientsWithActivity = clients.map((c) => {
     const clientActivity = activity.filter((a) => a.clientId === c.id);
-    const activeDays = clientActivity
-      .filter((a) => a.action === "file.uploaded")
-      .map((a) => a.createdAt.toISOString().slice(0, 10));
+    const fileActivityDays = buildFileActivityDaysMap(clientActivity, categories);
     return {
       ...c,
-      activeDays,
-      fileActivityDays: buildFileActivityDaysMap(clientActivity, categories),
+      activeDays: Object.keys(fileActivityDays),
+      fileActivityDays,
     };
   });
 
