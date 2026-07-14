@@ -22,6 +22,7 @@ export function MonthCalendar({
   baseHref,
   taskDays,
   fileActivityDays,
+  canMarkUsed = false,
 }: {
   year: number;
   month: number;
@@ -29,6 +30,7 @@ export function MonthCalendar({
   baseHref: string;
   taskDays?: TaskDaysMap;
   fileActivityDays?: FileActivityDaysMap;
+  canMarkUsed?: boolean;
 }) {
   const first = new Date(Date.UTC(year, month - 1, 1));
   const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
@@ -97,6 +99,7 @@ export function MonthCalendar({
               active={active}
               tasks={taskDays?.[dateKey]}
               fileEvents={fileActivityDays?.[dateKey]}
+              canMarkUsed={canMarkUsed}
             />
           );
         })}

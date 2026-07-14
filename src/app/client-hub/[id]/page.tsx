@@ -75,10 +75,15 @@ export default async function ClientHubDetailPage(props: {
   if (isStaff) {
     const activity = await db.activityLog.findMany({
       where: { clientId: id, action: "file.uploaded", createdAt: { gte: monthStart, lt: monthEnd } },
-      select: { id: true, action: true, meta: true, createdAt: true, actor: { select: { name: true } } },
+      select: { id: true, entityId: true, action: true, meta: true, createdAt: true, actor: { select: { name: true } } },
       orderBy: { createdAt: "asc" },
     });
-    fileActivityDays = buildFileActivityDaysMap(activity, categories);
+    const uploadedFiles = await db.file.findMany({
+      where: { id: { in: activity.map((a) => a.entityId) } },
+      select: { id: true, markedUsed: true },
+    });
+    const usedByFileId = new Map(uploadedFiles.map((f) => [f.id, f.markedUsed]));
+    fileActivityDays = buildFileActivityDaysMap(activity, categories, usedByFileId);
     activeDays = new Set(Object.keys(fileActivityDays));
 
     const monthTasks = await db.task.findMany({
@@ -201,6 +206,7 @@ export default async function ClientHubDetailPage(props: {
           baseHref={`/client-hub/${client.id}`}
           taskDays={taskDays}
           fileActivityDays={fileActivityDays}
+          canMarkUsed={user.role !== "CLIENT" && user.role !== "VIEWER"}
         />
       </Section>
     </div>

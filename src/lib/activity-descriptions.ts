@@ -19,7 +19,17 @@ export const ACTIVITY_ACTION_GROUPS: { label: string; actions: string[] }[] = [
     ],
   },
   { label: "Category", actions: ["category.created"] },
-  { label: "File", actions: ["file.uploaded", "file.deleted", "file.category_changed", "file.description.updated"] },
+  {
+    label: "File",
+    actions: [
+      "file.uploaded",
+      "file.deleted",
+      "file.category_changed",
+      "file.description.updated",
+      "file.marked_used",
+      "file.marked_unused",
+    ],
+  },
   {
     label: "User",
     actions: [
@@ -101,6 +111,10 @@ export function describeActivity(
       return `moved ${name(m.name)} from ${categoryLabel(String(m.from ?? ""))} to ${categoryLabel(String(m.to ?? ""))}`;
     case "file.description.updated":
       return `updated the description of ${name(m.name)}`;
+    case "file.marked_used":
+      return `marked ${name(m.name)} as used`;
+    case "file.marked_unused":
+      return `marked ${name(m.name)} as not used`;
     case "user.created":
       return `created a user account (${String(m.role ?? "?").toLowerCase()})`;
     case "user.role_changed":

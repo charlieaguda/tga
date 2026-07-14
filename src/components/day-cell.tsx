@@ -15,12 +15,14 @@ export function DayCell({
   active,
   tasks,
   fileEvents,
+  canMarkUsed = false,
 }: {
   day: number;
   dateKey: string;
   active: boolean;
   tasks?: DayTaskActivity;
   fileEvents?: FileActivityEntry[];
+  canMarkUsed?: boolean;
 }) {
   const [hovered, setHovered] = useState(false);
   const [open, setOpen] = useState(false);
@@ -84,7 +86,13 @@ export function DayCell({
       )}
 
       {open && (
-        <DayInfoModal dateLabel={dateLabel} fileEvents={dayFileEvents} tasks={dayTasks} onClose={() => setOpen(false)} />
+        <DayInfoModal
+          dateLabel={dateLabel}
+          fileEvents={dayFileEvents}
+          tasks={dayTasks}
+          canMarkUsed={canMarkUsed}
+          onClose={() => setOpen(false)}
+        />
       )}
     </div>
   );

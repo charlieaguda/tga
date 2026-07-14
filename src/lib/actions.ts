@@ -386,3 +386,7 @@ export async function clientFileMove(fileId: string, newCategoryKey: string): Pr
     clientFiles.moveClientFile(id.parse(fileId), z.string().trim().min(1).max(64).parse(newCategoryKey)),
   );
 }
+
+export async function clientFileSetUsed(fileId: string, used: boolean): Promise<ActionResult> {
+  return guard(() => clientFiles.setClientFileUsed(id.parse(fileId), used));
+}

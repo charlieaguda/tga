@@ -294,6 +294,7 @@ model File {
   uploadedById String
   uploadedBy   User          @relation(fields: [uploadedById], references: [id])
   description  String?
+  markedUsed   Boolean       @default(false) // client-hub uploads only: reviewed and used in a post
   createdAt    DateTime      @default(now())
 
   @@index([submissionId])

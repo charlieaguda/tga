@@ -97,13 +97,18 @@ async function EditorDashboard(userId: string) {
       action: "file.uploaded",
       createdAt: { gte: monthStart, lt: monthEnd },
     },
-    select: { id: true, clientId: true, action: true, meta: true, createdAt: true, actor: { select: { name: true } } },
+    select: { id: true, clientId: true, entityId: true, action: true, meta: true, createdAt: true, actor: { select: { name: true } } },
     orderBy: { createdAt: "asc" },
   });
+  const uploadedFiles = await db.file.findMany({
+    where: { id: { in: activity.map((a) => a.entityId) } },
+    select: { id: true, markedUsed: true },
+  });
+  const usedByFileId = new Map(uploadedFiles.map((f) => [f.id, f.markedUsed]));
 
   const clientsWithActivity = clients.map((c) => {
     const clientActivity = activity.filter((a) => a.clientId === c.id);
-    const fileActivityDays = buildFileActivityDaysMap(clientActivity, categories);
+    const fileActivityDays = buildFileActivityDaysMap(clientActivity, categories, usedByFileId);
     return {
       ...c,
       activeDays: Object.keys(fileActivityDays),
@@ -126,6 +131,7 @@ async function EditorDashboard(userId: string) {
           year={year}
           month={month}
           canEdit={true}
+          canMarkUsed={true}
           categories={categories}
           driveConfigured={driveConfigured}
         />
@@ -219,13 +225,18 @@ async function ManagerDashboard(userId: string) {
       action: "file.uploaded",
       createdAt: { gte: monthStart, lt: monthEnd },
     },
-    select: { id: true, clientId: true, action: true, meta: true, createdAt: true, actor: { select: { name: true } } },
+    select: { id: true, clientId: true, entityId: true, action: true, meta: true, createdAt: true, actor: { select: { name: true } } },
     orderBy: { createdAt: "asc" },
   });
+  const uploadedFiles = await db.file.findMany({
+    where: { id: { in: activity.map((a) => a.entityId) } },
+    select: { id: true, markedUsed: true },
+  });
+  const usedByFileId = new Map(uploadedFiles.map((f) => [f.id, f.markedUsed]));
 
   const clientsWithActivity = clients.map((c) => {
     const clientActivity = activity.filter((a) => a.clientId === c.id);
-    const fileActivityDays = buildFileActivityDaysMap(clientActivity, categories);
+    const fileActivityDays = buildFileActivityDaysMap(clientActivity, categories, usedByFileId);
     return {
       ...c,
       activeDays: Object.keys(fileActivityDays),
@@ -251,6 +262,7 @@ async function ManagerDashboard(userId: string) {
           year={year}
           month={month}
           canEdit={true}
+          canMarkUsed={true}
           categories={categories}
           driveConfigured={driveConfigured}
         />

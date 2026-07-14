@@ -2,9 +2,11 @@ import { describeActivity } from "@/lib/activity-descriptions";
 
 export interface FileActivityEntry {
   id: string;
+  fileId: string;
   actorName: string;
   description: string;
   createdAt: Date;
+  markedUsed: boolean;
 }
 
 export type FileActivityDaysMap = Record<string, FileActivityEntry[]>;
@@ -12,12 +14,14 @@ export type FileActivityDaysMap = Record<string, FileActivityEntry[]>;
 export function buildFileActivityDaysMap(
   rows: {
     id: bigint;
+    entityId: string;
     action: string;
     meta: unknown;
     createdAt: Date;
     actor: { name: string | null } | null;
   }[],
   categories: { key: string; label: string }[],
+  usedByFileId: Map<string, boolean> = new Map(),
 ): FileActivityDaysMap {
   const labelOf = new Map(categories.map((c) => [c.key, c.label]));
   const categoryLabel = (key: string) => labelOf.get(key) ?? key;
@@ -26,9 +30,11 @@ export function buildFileActivityDaysMap(
     const key = row.createdAt.toISOString().slice(0, 10);
     (map[key] ??= []).push({
       id: row.id.toString(),
+      fileId: row.entityId,
       actorName: row.actor?.name ?? "Someone",
       description: describeActivity(row.action, row.meta, categoryLabel),
       createdAt: row.createdAt,
+      markedUsed: usedByFileId.get(row.entityId) ?? false,
     });
   }
   return map;

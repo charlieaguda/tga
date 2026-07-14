@@ -29,6 +29,7 @@ export type Action =
   | "client.read"
   | "client.file.read"
   | "client.file.upload"
+  | "client.file.markUsed"
   | "category.write"
   | "job.create"
   | "job.write"
@@ -76,6 +77,7 @@ const policy: Record<Action, (u: SessionUser, resource?: any) => boolean> = {
     u.role === "ADMIN" || u.role === "CEO" || u.role === "MANAGER" ||
     (u.role === "EDITOR" && resource.editorHasTask === true) ||
     (isOwnClient(u, resource.client) && resource.category.clientWritable),
+  "client.file.markUsed": (u) => u.role !== "CLIENT" && u.role !== "VIEWER",
   "category.write": (u) => u.role !== "CLIENT",
   "job.create": (u) => u.role === "ADMIN" || u.role === "MANAGER",
   "job.write": (u, job: JobResource) => managesJob(u, job),

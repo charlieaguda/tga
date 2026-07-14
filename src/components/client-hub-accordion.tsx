@@ -58,6 +58,7 @@ export function ClientHubAccordion({
   year,
   month,
   canEdit,
+  canMarkUsed = false,
   categories,
   driveConfigured,
 }: {
@@ -65,6 +66,7 @@ export function ClientHubAccordion({
   year: number;
   month: number;
   canEdit: boolean;
+  canMarkUsed?: boolean;
   categories: CategoryDef[];
   driveConfigured: boolean;
 }) {
@@ -77,6 +79,7 @@ export function ClientHubAccordion({
           year={year}
           month={month}
           canEdit={canEdit}
+          canMarkUsed={canMarkUsed}
           categories={categories}
           driveConfigured={driveConfigured}
         />
@@ -95,6 +98,7 @@ function ClientCard({
   year,
   month,
   canEdit,
+  canMarkUsed,
   categories,
   driveConfigured,
 }: {
@@ -102,6 +106,7 @@ function ClientCard({
   year: number;
   month: number;
   canEdit: boolean;
+  canMarkUsed: boolean;
   categories: CategoryDef[];
   driveConfigured: boolean;
 }) {
@@ -293,6 +298,7 @@ function ClientCard({
                 baseHref={`/client-hub/${client.id}`}
                 taskDays={taskDays}
                 fileActivityDays={client.fileActivityDays}
+                canMarkUsed={canMarkUsed}
               />
             </div>
           </div>

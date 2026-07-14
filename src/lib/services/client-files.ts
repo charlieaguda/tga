@@ -313,6 +313,22 @@ export async function deleteClientFile(fileId: string): Promise<void> {
   });
 }
 
+export async function setClientFileUsed(fileId: string, used: boolean): Promise<void> {
+  const actor = await authorize("client.file.markUsed");
+  const file = await db.file.findUnique({ where: { id: fileId } });
+  if (!file || !file.clientId) throw new ValidationError("File not found");
+
+  await db.file.update({ where: { id: fileId }, data: { markedUsed: used } });
+  await logActivity(db, {
+    actorId: actor.id,
+    action: used ? "file.marked_used" : "file.marked_unused",
+    entityType: "file",
+    entityId: file.id,
+    clientId: file.clientId,
+    meta: { name: file.storedName },
+  });
+}
+
 export async function moveClientFile(fileId: string, newCategoryKey: string): Promise<void> {
   const file = await db.file.findUnique({ where: { id: fileId } });
   if (!file || !file.clientId || !file.category) throw new ValidationError("File not found");
