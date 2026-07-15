@@ -58,8 +58,11 @@ export async function resolveEditorHasTask(user: SessionUser, clientId: string):
   return (await db.task.count({ where: { assigneeId: user.id, job: { clientId } } })) > 0;
 }
 
-function currentMonthLabel(date: Date = new Date()): string {
-  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
+function currentDateLabel(date: Date = new Date()): string {
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(date.getUTCDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 async function getUploadableClient(clientId: string, categoryKey: string) {
@@ -103,7 +106,7 @@ export async function createClientUploadSession(
   });
 
   const categoryFolderId = await ensureClientCategoryFolder(client, category);
-  const folderId = await ensureFolder(categoryFolderId, currentMonthLabel(session.createdAt));
+  const folderId = await ensureFolder(categoryFolderId, currentDateLabel(session.createdAt));
 
   // The Drive session URI is returned to the uploader only — never logged/persisted.
   const sessionUri = await createResumableSession({
@@ -164,7 +167,7 @@ async function verifyAndRecordClientUpload(
     where: { clientId_category: { clientId: session.client.id, category: session.category } },
   });
   const expectedFolderId = folder
-    ? await ensureFolder(folder.driveFolderId, currentMonthLabel(session.createdAt))
+    ? await ensureFolder(folder.driveFolderId, currentDateLabel(session.createdAt))
     : null;
 
   const info = await verifyDriveUpload({
@@ -356,7 +359,7 @@ export async function moveClientFile(fileId: string, newCategoryKey: string): Pr
   if (!currentParent) throw new ValidationError("Could not resolve the file's current Drive folder");
 
   const destCategoryFolderId = await ensureClientCategoryFolder(client, newCategory);
-  const destFolderId = await ensureFolder(destCategoryFolderId, currentMonthLabel());
+  const destFolderId = await ensureFolder(destCategoryFolderId, currentDateLabel());
 
   await moveFile(file.driveFileId, destFolderId, currentParent);
   await db.file.update({ where: { id: fileId }, data: { category: newCategoryKey } });
